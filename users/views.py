@@ -15,9 +15,9 @@ class UserRegisterationViewset(ModelViewSet):
     
     def get_permissions(self):
         if self.action == 'create':
-            permission_classes = (AllowAny)
+            permission_classes = [AllowAny]
         else:
-            permission_classes = (IsAdmin ,IsOwner)
+            permission_classes = [IsAdmin ,IsOwner]
         return [permissions() for permissions in permission_classes]
     
     @action(detail=False, methods=['POST'],url_name='passowrd-change')
