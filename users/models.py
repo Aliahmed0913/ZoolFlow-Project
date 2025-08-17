@@ -11,7 +11,7 @@ class User(AbstractUser):
     role_management=models.CharField(max_length=10, choices=Roles.choices, default=Roles.CUSTOMER)
         
     email=models.EmailField(unique=True)
-    password = models.CharField(max_length=15)
+    password = models.CharField(max_length=128)
    
     phone_number = models.CharField(max_length=20, unique=True)
     
