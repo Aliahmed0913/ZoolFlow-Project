@@ -1,8 +1,7 @@
 from users.models import User,EmailCode
-from users.serializers import EmailCodeSerializer
 from django.utils import timezone
 from datetime import timedelta
-from task import mail_user_code
+from users.task import mail_user_code
 import random, logging
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,8 @@ def re_create_verify_code(user):
             return create_email_code(user=user) 
         
         remaining = current_code.expiry_time - timezone.now()
-        logger.warning(f'verify code has {remaining.seconds // 60} minute left')    
+        logger.info(f'verify code has {remaining.seconds // 60} minute left')    
+        mail_user_code.delay(current_code.id)
         return current_code
            
     return create_email_code(user=user)

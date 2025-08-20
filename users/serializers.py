@@ -45,9 +45,9 @@ class UserSerializer(serializers.ModelSerializer):
         return value
         
     def create(self, validated_data):
-        user = user.objects.create_user(**validated_data)
-        create_email_code(user)
-        return user
+        c_user = user.objects.create_user(**validated_data)
+        create_email_code(c_user)
+        return c_user
 
 class EmailCodeSerializer(serializers.ModelSerializer):
     class Meta():
