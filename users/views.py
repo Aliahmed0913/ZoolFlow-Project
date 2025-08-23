@@ -8,9 +8,9 @@ from rest_framework.views import APIView
 from rest_framework.throttling import UserRateThrottle,AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.permissions.user import IsAdminOrOwner
-from .serializers import UserSerializer,EmailCodeVerificationSerializer
+from .serializers import UserSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
 from .models import User
-from .services.user_profile import check_new_password
+
 from users.services.verifying_code import VerificationCodeService, VerifyCodeStatus
 from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -28,7 +28,13 @@ class UserProfileViewSet(ModelViewSet):
     serializer_class = UserSerializer
     http_method_names = ['get','patch']
     permission_classes = [IsAdminOrOwner,IsAuthenticated]
-    throttle_scope = 'profile'
+    
+    def get_throttles(self):
+        if self.action == 'change_password':
+            self.throttle_scope = 'new_password'
+        else:
+            self.throttle_scope = 'profile'
+        return super().get_throttles()
     
     def get_queryset(self):
         user_role = self.request.user.role_management
@@ -53,31 +59,31 @@ class UserProfileViewSet(ModelViewSet):
         
     @action(detail=False, methods=['PATCH'],url_path='mine/new-password') 
     def change_password(self, request):
-        self.throttle_scope = 'new_password'
-        self.check_throttles(request)  
         #serializerfor password
-        username = request.user.username
-        new_password = request.data.get('new_password')
-       
-        if not new_password:
-            return Response({'error': 'new_password field required'},status=status.HTTP_400_BAD_REQUEST)
+        serializer = ChangePasswordSerializer(data=request.data, context={'request':request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'message':f'Password successfuly updated'},status=status.HTTP_200_OK)
         
-        if check_new_password(self,new_password):
-            return Response({'message':f'Password successfuly updated for {username}'},status=status.HTTP_202_ACCEPTED)
-        return Response({'error':f'Password is identical to old.Please write new password!'},status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerificationCodeViewSet(GenericViewSet):
+    serializer_class = EmailCodeVerificationSerializer
+    def get_throttles(self):
+        if self.action == 'verifying_user_code':
+            self.throttle_scope = 'verify_code'
+        else:
+             self.throttle_scope = 'resend_code'
+        return super().get_throttles()
     
     @action(detail=False, methods=['POST'], url_path='validate')
     def verifying_user_code(self,request):
-        self.throttle_scope = 'verify_code'
-        self.check_throttles(request)
-        serializer = EmailCodeVerificationSerializer(data=request.data)
+       
+       
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         recived_code = serializer.validated_data['code']
-        email = serializer.validated_data['email']
-        
+        email = serializer.validated_data['email'] 
         user = self.get_user(email)
 
         if not recived_code:
@@ -99,13 +105,13 @@ class VerificationCodeViewSet(GenericViewSet):
         elif result == VerifyCodeStatus.NOT_FOUND:
             return Response(f'{user.username} doesn\'t have an active code',status=status.HTTP_404_NOT_FOUND)
        
-        return Response('user code is expired!',status=status.HTTP_408_REQUEST_TIMEOUT)
+        return Response({'error':'user code is expired!'},status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['POST'], url_path='resend')
     def resend_user_code(self,request):
-        self.throttle_scope='resend_code'
-        self.check_throttles(request)
-        serializer = EmailCodeVerificationSerializer(data=request.data)
+
+        
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         
