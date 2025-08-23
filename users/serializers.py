@@ -2,7 +2,6 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .validators import validate_password, validate_phone_number
 from users.services.verifying_code import VerificationCodeService
-from users.services.user_profile import check_new_password
 from django.contrib.auth.hashers import check_password
 from Restaurant.settings import CODE_LENGTH
 import logging

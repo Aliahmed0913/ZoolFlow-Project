@@ -144,6 +144,7 @@ REST_FRAMEWORK = {
         'profile':'30/minute',
         'new_password':'2/day',
         'resend_code':'3/minute',
+        'default':'100/day'
     }
 }
 

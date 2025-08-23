@@ -68,11 +68,12 @@ class UserProfileViewSet(ModelViewSet):
 
 class VerificationCodeViewSet(GenericViewSet):
     serializer_class = EmailCodeVerificationSerializer
+    verification_throttle_scope = {
+        'verifying_user_code':'verify_code',
+        'resend_user_code':'resend_code'
+    }
     def get_throttles(self):
-        if self.action == 'verifying_user_code':
-            self.throttle_scope = 'verify_code'
-        else:
-             self.throttle_scope = 'resend_code'
+        self.throttle_scope = self.verification_throttle_scope.get(self.action, 'default')
         return super().get_throttles()
     
     @action(detail=False, methods=['POST'], url_path='validate')
