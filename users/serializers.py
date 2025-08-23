@@ -26,7 +26,7 @@ class UserSerializer(serializers.ModelSerializer):
             user_role = validated_data['role_management']
             if user_role == 'ADMIN' and request.user.role_management != 'ADMIN':
                 validated_data.pop('role_management')
-                logger.warning(f'{request.user.username} can\'t upgrade herself to admin')
+                logger.warning(f'{request.user.username} can\'t upgrade admin')
             
         if 'password' in validated_data:
             validated_data.pop('password')
