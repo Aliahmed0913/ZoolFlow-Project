@@ -134,12 +134,16 @@ REST_FRAMEWORK = {
     ],
     
     
-    'DEFAULT_THROTTLE_CLASSES':[
-        'rest_framework.throttling.ScopedRateThrottle'       
+    'DEFAULT_THROTTLE_CLASSES':[  
+        'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES':{
+        'sign_up':'5/minute',
+        'verify_code':'10/minute',
         'login': '10/minute',
-        'default': '100/hour',
+        'profile':'30/minute',
+        'new_password':'2/day',
+        'resend_code':'3/minute',
     }
 }
 

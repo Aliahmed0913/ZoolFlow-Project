@@ -1,6 +1,5 @@
 from django.urls import path,include
-from .views import UserProfileViewSet,VerificationCodeViewSet,UserRegistrationView
-from core.views import CustomTokenObtainPairView
+from .views import UserProfileViewSet,VerificationCodeViewSet,UserRegistrationView,CustomTokenObtainPairView
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
 
