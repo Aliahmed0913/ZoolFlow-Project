@@ -3,43 +3,42 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound,PermissionDenied
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from users.serializers import UserSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
+from users.serializers import UserRegistrationSerializer,UserProfileSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
 from users.models import User
 from users.services.verifying_code import VerificationCodeService, VerifyCodeStatus
-from core.permissions.user import IsAdminOrOwner
+from core.permissions.user import IsAdminOrOwner,IsAdmin
 # Create your views here.
 
 class UserRegistrationView(APIView):
     throttle_scope = 'sign_up'
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class UserProfileViewSet(ModelViewSet):
     http_method_names = ['get','patch']
-    serializer_class = UserSerializer
-    permission_classes = [IsAdminOrOwner,IsAuthenticated]
+    serializer_class = UserProfileSerializer
+    queryset = User.objects.all()
     
-    def get_queryset(self):
-        user_role = self.request.user.role_management
-        users = User.objects.all()
-        if user_role == 'ADMIN':
-            return users
-        return User.objects.none()
-
+    def get_permissions(self):
+        if self.action in ['list','retrieve','partial_update']:
+            return [IsAdmin()]
+        return [IsAuthenticated(),IsAdminOrOwner()]
+    
     def get_throttles(self):
         if self.action == 'change_password':
             self.throttle_scope = 'new_password'
         else:
             self.throttle_scope = 'profile'
         return super().get_throttles()
+    
     
     @action(detail=False, methods=['GET','PATCH'],url_path='mine')
     def my_profile(self,request):
@@ -94,7 +93,7 @@ class VerificationCodeViewSet(GenericViewSet):
             return Response({
             'refresh':str(refresh_token),
             'access':str(refresh_token.access_token),
-            },status=status.HTTP_201_CREATED)
+            },status=status.HTTP_200_OK)
         
         elif result == VerifyCodeStatus.IN_VALID:
             return Response({'code':'invalid code'},status=status.HTTP_400_BAD_REQUEST)
@@ -121,7 +120,7 @@ class VerificationCodeViewSet(GenericViewSet):
         try:
             return User.objects.get(email=email)
         except User.DoesNotExist:
-            raise NotFound({'error':f'user with email {email} does\'t exist!'})
+            raise NotFound({'error':f'invalid email'})
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     '''Customize token-generator to limit request per minute to 10'''
