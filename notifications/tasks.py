@@ -8,10 +8,10 @@ logger = logging.getLogger(__name__)
 @shared_task(bind=True, max_retries=3)
 def mail_code_task(self,emailcode_id):
     try:
-        logger.info('start mail you code...')
+        logger.info('start mail your code...')
         emailcode = EmailCode.objects.get(id=emailcode_id)
         mail_verify_code(emailcode)
-        logger.info('you recived code in you email')
+        logger.info('user recieved there code')
     except Exception as e:
         logger.warning('fail to send you code verification retry in minute...')
         raise self.retry(exc=e, countdown=60)

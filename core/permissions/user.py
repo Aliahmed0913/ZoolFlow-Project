@@ -9,6 +9,7 @@ class IsAdminOrOwner(BasePermission):
         return obj.id == request.user.id
         
 class IsAdmin(BasePermission):
+    message = 'Admins only!'
     def has_permission(self, request,view):
         return request.user.is_authenticated and request.user.role_management == "ADMIN"
     
