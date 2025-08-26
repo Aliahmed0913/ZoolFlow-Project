@@ -1,14 +1,14 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .validators import validate_password, validate_phone_number
 from users.services.verifying_code import VerificationCodeService
 from django.contrib.auth.hashers import check_password
 from Restaurant.settings import CODE_LENGTH
-import logging
+from django.contrib.auth.password_validation import validate_password
+import logging, re
 logger = logging.getLogger(__name__)
 
 
-
+PHONE_NUMBER_REGEX = re.compile(r'^(\(?\+?[0-9]*\)?)?[0-9_\- \(\)]*$')
 User = get_user_model()
 
 
@@ -21,10 +21,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         }
     
     def validate_password(self, value):    
-        return validate_password(value)
+        validate_password(value,self.instance)
+        return value 
    
     def validate_phone_number(self, value):    
-        return validate_phone_number(value)
+        if not PHONE_NUMBER_REGEX.fullmatch(value):
+            raise serializers.ValidationError(
+                'only allowing for an international dialing code at the start, - and spaces'
+                )
+        return value
         
     def create(self, validated_data):
         c_user = User.objects.create_user(**validated_data,

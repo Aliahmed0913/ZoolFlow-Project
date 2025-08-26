@@ -1,20 +1,35 @@
-import re
-from rest_framework import serializers
+from django.core.exceptions import ValidationError
+import string
+from django.utils.translation import gettext as _
 
-PASSWORD_REGEX = re.compile(r'^[A-Z](?=.*[a-z])(?=.*\d)(?!.*\s).{7,14}$')
-PHONE_NUMBER_REGEX = re.compile(r'^(\(?\+?[0-9]*\)?)?[0-9_\- \(\)]*$')
+class PasswordCustomValidator:
+    def validate(self, password:str, user=None):
+        length = len(password)
+        first_char = password[0]
+        if length > 15 or length < 8 :
+            raise ValidationError(_('Length of password must be between 8-15 characters.'),code='Password_length')
+        
+        if not first_char.isupper():
+            raise ValidationError(_('password must start with uppercase letter.'),code='Password_no-uppercase_start')
+        
+        if not any(c.islower() for c in password):
+            raise ValidationError(_('Password must contain at least lowercase letter.'),code='Password_no_lowercase')
+        
+        if not any(c.isdigit() for c in password):
+            raise ValidationError(_('Password must contain digit.'),code='Password_no_digit')
+        
+        if ' ' in password:
+            raise ValidationError(_('Password can\'t contain spaces'),code='Password_contain_spaces')
+        
+        if not any(c in string.punctuation for c in password):
+            raise ValidationError(_('Password must contain at least one special character.'),code='Password_no_special-character')
+        
+    def get_help_text(self):
+        return _(
+                'Password must be 8-15 length,'
+                'start with uppercase, contain one lowercase at least,'
+                'no spaces and contain at least one special character.'
+                )     
 
-def validate_password(value):    
-    if not PASSWORD_REGEX.fullmatch(value):
-        raise serializers.ValidationError({
-            'Error':'Password must be alphanumeric start with uppercase ,'
-            'restricted in 8-15 long with no spaces'
-            })
-    return value
 
-def validate_phone_number(value):    
-        if not PHONE_NUMBER_REGEX.fullmatch(value):
-            raise serializers.ValidationError(
-                'only allowing for an international dialing code at the start, - and spaces'
-                )
-        return value
+        
