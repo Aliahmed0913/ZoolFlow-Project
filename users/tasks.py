@@ -6,6 +6,9 @@ log = logging.getLogger(__name__)
 
 @shared_task(queue='expired',max_retries=3)
 def remove_expired_task():
-    log.info('start cleaning useless codes')
+    '''
+    Celery backgroud task for clean up any expired EmailCode object;
+    '''
+    log.info({'event':'start cleaning useless codes'})
     remove_expired_code()
-    log.info('end with cleaning')
+    log.info({'event':'end with cleaning'})
