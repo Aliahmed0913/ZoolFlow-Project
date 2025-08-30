@@ -1,24 +1,21 @@
+import phonenumbers
+from phonenumbers.phonenumberutil import NumberParseException
+
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from users.services.verifying_code import VerificationCodeService
 from django.contrib.auth.hashers import check_password
 from Restaurant.settings import CODE_LENGTH
 from django.contrib.auth.password_validation import validate_password
-from users.validators import PhoneNumberValidator
-import logging, re
+
+import logging
 logger = logging.getLogger(__name__)
 
-import phonenumbers
-from phonenumbers.phonenumberutil import NumberParseException
-
-
-PHONE_NUMBER_REGEX = re.compile(r'^(\(?\+?[0-9]*\)?)?[0-9_\- \(\)]*$')
 User = get_user_model()
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     country = serializers.CharField(max_length=2, write_only=True, default=None)
-    phone_number = serializers.CharField(max_length=20,validators=[PhoneNumberValidator(country_field='country')])
     
     class Meta():
         model = User
@@ -32,8 +29,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value 
     
     def validate_phone_number(self,value):
-        parse_number = phonenumbers.parse(value,self.initial_data.get('country'))
-        return str(phonenumbers.format_number(parse_number,phonenumbers.PhoneNumberFormat.E164))
+        country = self.initial_data.get('country')
+        country = country.upper() if country else None
+        try:
+            phonenumber = phonenumbers.parse(value,country)
+        
+            if not phonenumbers.is_possible_number(phonenumber):
+                raise serializers.ValidationError('Format is not possible')
+        
+            if not phonenumbers.is_valid_number(phonenumber):
+                raise serializers.ValidationError('Not valid for specific region')
+        
+        except NumberParseException:
+            raise serializers.ValidationError('Missing or invalid region or format')
+        
+        return str(phonenumbers.format_number(phonenumber,phonenumbers.PhoneNumberFormat.E164))
 
     def create(self, validated_data):
         validated_data.pop('country')  
@@ -54,17 +64,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
         request = self.context['request']
         user_role = request.user.role_management
         if 'role_management' in validated_data and user_role != 'ADMIN':
-            validated_data.pop('role_management')
             logger.warning(f'{request.user.username} can\'t upgrade himself to admin')
             raise serializers.ValidationError({'detail':'User can\'t upgrade himself to admin'})
         
         if 'is_active' in validated_data and user_role != 'ADMIN':
-            validated_data.pop('is_active')
             logger.warning(f'{user_role} can\'t activate himself')
             raise serializers.ValidationError({'detail':'User can\'t activate himself'})
         
         if 'password' in validated_data:
-            validated_data.pop('password')
             logger.warning('This endpoint can\'t update passwords')
             raise serializers.ValidationError({'detail':'Page can\'t handle password change.'})
         
