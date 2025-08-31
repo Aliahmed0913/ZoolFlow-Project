@@ -125,7 +125,7 @@ class VerificationCodeViewSet(GenericViewSet):
             return Response({'code':'new verify code is send'},status=status.HTTP_200_OK)
         elif code == VerifyCodeStatus.VALID:
             return Response({'code':'currently valid'})
-        return Response({'code':'User is verified and activated'})
+        return Response({'code':'Can\'t recreate. user is verified and activated'})
 
     def get_user(self,email):
         try:

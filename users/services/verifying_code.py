@@ -1,10 +1,9 @@
 from django.utils import timezone
 from enum import Enum
 from datetime import timedelta
-import logging, secrets
-
 from users.models import EmailCode,User
 from Restaurant.settings import CODE_LENGTH
+import logging, secrets
 
 logger = logging.getLogger(__name__)
 
