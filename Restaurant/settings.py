@@ -141,7 +141,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES':{
         'sign_up':'5/minute',
-        'verify_code':'10/10m',
+        'verify_code':'10/m',
         'login': '10/minute',
         'profile':'30/minute',
         'new_password':'10/day',

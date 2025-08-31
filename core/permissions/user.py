@@ -3,6 +3,7 @@ from rest_framework.permissions import BasePermission
 
 
 class IsAdminOrOwner(BasePermission):
+    '''Ensure that admins broadly accessible and restrict others to their only information'''
     def has_object_permission(self, request, view, obj):
         if request.user.role_management == 'ADMIN':
             return True

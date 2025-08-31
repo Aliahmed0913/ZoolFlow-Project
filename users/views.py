@@ -32,8 +32,8 @@ class UserProfileViewSet(ModelViewSet):
     http_method_names = ['get','patch']
     serializer_class = UserProfileSerializer
     queryset = User.objects.all()
-    
     permission_classes = IsAuthenticated
+    
     def get_permissions(self):
         if self.action in ['list','retrieve','partial_update']:
             return [IsAdmin()]
@@ -73,7 +73,7 @@ class VerificationCodeViewSet(GenericViewSet):
     serializer_class = EmailCodeVerificationSerializer
     verification_throttle_scope = {
         'verifying_user_code':'verify_code',
-        'resend_user_code':'resend_code'
+        'resend_user_code':'resend_code',
     }
     
     def get_throttles(self):
@@ -118,7 +118,6 @@ class VerificationCodeViewSet(GenericViewSet):
         
         user = self.get_user(email)
         service = VerificationCodeService(user)
-        
         code = service.recreate_code_on_demand()
         if code:
             send_verification_code(code.id)
