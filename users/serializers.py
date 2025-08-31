@@ -48,10 +48,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('country')  
         c_user = User.objects.create_user(**validated_data,
-                                          is_active=False,# will activated after success verification
-                                          )
-        service = VerificationCodeService(c_user)
-        service.create_code()
+                                        is_active=False,# will activated after success verification
+                                        )
         return c_user
     
 class UserProfileSerializer(serializers.ModelSerializer):

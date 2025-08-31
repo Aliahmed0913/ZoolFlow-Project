@@ -12,6 +12,7 @@ from users.serializers import UserRegistrationSerializer,UserProfileSerializer,E
 from users.models import User
 from users.services.verifying_code import VerificationCodeService, VerifyCodeStatus
 from core.permissions.user import IsAdminOrOwner,IsAdmin
+from notifications.services.verification_code import send_verification_code
 # Create your views here.
 
 class UserRegistrationView(APIView):
@@ -19,7 +20,12 @@ class UserRegistrationView(APIView):
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        c_user = serializer.save()
+        
+        service = VerificationCodeService(c_user.id)
+        code = service.create_code()
+        send_verification_code(code.id)
+        
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class UserProfileViewSet(ModelViewSet):

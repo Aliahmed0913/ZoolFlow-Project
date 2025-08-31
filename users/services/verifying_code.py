@@ -3,8 +3,7 @@ from enum import Enum
 from datetime import timedelta
 import logging, secrets
 
-from users.models import EmailCode
-from notifications.services.verification_code import send_verification_code
+from users.models import EmailCode,User
 from Restaurant.settings import CODE_LENGTH
 
 logger = logging.getLogger(__name__)
@@ -18,8 +17,8 @@ class VerificationCodeService:
     
     DEFAULT_EXPIRY = timedelta(minutes=10)
     
-    def __init__(self,user):
-        self.user = user
+    def __init__(self,user_id):
+        self.user = User.objects.get(id=user_id)
 
     def create_code(self, expiry:timedelta=None):
         ''' expiry time for code with default to 10 minute'''
@@ -30,7 +29,6 @@ class VerificationCodeService:
         )
         
         logger.info(f'New code successfuly created for {self.user.username}.')
-        send_verification_code(generated_email_code.id)
         return generated_email_code
     
     def validate_code(self,received_code:str):
