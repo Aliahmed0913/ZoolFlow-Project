@@ -3,7 +3,6 @@ from phonenumbers.phonenumberutil import NumberParseException
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from users.services.verifying_code import VerificationCodeService
 from django.contrib.auth.hashers import check_password
 from Restaurant.settings import CODE_LENGTH
 from django.contrib.auth.password_validation import validate_password
