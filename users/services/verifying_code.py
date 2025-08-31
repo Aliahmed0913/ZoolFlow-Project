@@ -21,7 +21,11 @@ class VerificationCodeService:
         self.user = User.objects.get(id=user_id)
 
     def create_code(self, expiry:timedelta=None):
-        ''' expiry time for code with default to 10 minute'''
+        '''
+        Create a user new verify code
+        
+        expiry time to consume that code
+        '''
         generated_email_code = EmailCode.objects.create(
             user=self.user,
             code=self.generate_code(),

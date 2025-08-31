@@ -4,7 +4,9 @@ from Restaurant.settings import DEFAULT_FROM_EMAIL
 from django.template.loader import render_to_string
 
 def mail_verify_code(user_code:EmailCode):
-    
+    '''
+    Create and configure EmailMessage instance then send the object
+    '''
     subject = 'Verify your email'
     send_to = [user_code.user.email]
     email_from = DEFAULT_FROM_EMAIL
@@ -18,6 +20,7 @@ def mail_verify_code(user_code:EmailCode):
                          to=send_to,
                          body=html_body)
         email.content_subtype = 'html'
+        
         email.send()
     except Exception as error:
         raise 

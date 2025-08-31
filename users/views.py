@@ -1,15 +1,14 @@
+from rest_framework import status
 from rest_framework.viewsets import ModelViewSet,GenericViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import NotFound
-from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-
-from users.serializers import UserRegistrationSerializer,UserProfileSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
 from users.models import User
+from users.serializers import UserRegistrationSerializer,UserProfileSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
 from users.services.verifying_code import VerificationCodeService, VerifyCodeStatus
 from core.permissions.user import IsAdminOrOwner,IsAdmin
 from notifications.services.verification_code import send_verification_code
@@ -25,7 +24,7 @@ class UserRegistrationView(APIView):
         
         service = VerificationCodeService(c_user.id)
         code = service.create_code()
-        send_verification_code(code.id)
+        send_verification_code(code.id) # here where celery task is started 
         
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

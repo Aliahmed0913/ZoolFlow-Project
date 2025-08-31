@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=3)
 def mail_code_task(self,emailcode_id):
+    '''Backgroud task for mailing verify code to user email'''
     try:
         logger.info('start mail your code...')
         emailcode = EmailCode.objects.get(id=emailcode_id)
