@@ -9,7 +9,7 @@ routers = DefaultRouter()
 routers.register('profiles',UserProfileViewSet,basename='update-profile')
 routers.register('verify-code',VerificationCodeViewSet, basename='verify-code')
 
-urlpatterns = [
+urlpatterns = [ #api/v1/users/
     path('',include(routers.urls)),
     path('sign-up/',UserRegistrationView.as_view(),name='registeration'),
     path('login/',CustomTokenObtainPairView.as_view(),name='get-token'),
