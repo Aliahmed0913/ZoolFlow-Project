@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.db import transaction
 from enum import Enum
 from datetime import timedelta
 from users.models import EmailCode,User
@@ -21,21 +22,23 @@ class VerificationCodeService:
     
     def __init__(self,user_id):
         self.user = User.objects.get(id=user_id)
-
+    
+    @transaction.atomic
     def create_code(self, expiry:timedelta=None):
         '''
         Create a user new verify code
         
         expiry time to consume that code
         '''
-        generated_email_code = EmailCode.objects.create(
-            user=self.user,
-            code=self.generate_code(),
-            expiry_time=timezone.now() + (expiry or self.DEFAULT_EXPIRY)
-        )
+        if not self.active_code():
+            generated_email_code = EmailCode.objects.create(
+                user=self.user,
+                code=self.generate_code(),
+                expiry_time=timezone.now() + (expiry or self.DEFAULT_EXPIRY)
+            )
         
-        logger.info(f'New code successfuly created for {self.user.username}.')
-        return generated_email_code
+            logger.info(f'New code successfuly created for {self.user.username}.')
+            return generated_email_code
     
     def validate_code(self,received_code:str):
         '''
