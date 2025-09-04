@@ -3,10 +3,10 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.password_validation import validate_password
 
-import phonenumbers, logging 
-from phonenumbers.phonenumberutil import NumberParseException
+from users.validators import validate_phone
 from Restaurant.settings import CODE_LENGTH
 
+import logging
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
@@ -27,20 +27,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     def validate_phone_number(self,value):
         country = self.initial_data.get('country')
-        country = country.upper() if country else None
-        try:
-            phonenumber = phonenumbers.parse(value,country)
-        
-            if not phonenumbers.is_possible_number(phonenumber):
-                raise serializers.ValidationError('Format is not possible')
-        
-            if not phonenumbers.is_valid_number(phonenumber):
-                raise serializers.ValidationError('Not valid for specific region')
-        
-        except NumberParseException:
-            raise serializers.ValidationError('Missing or invalid region or format')
-        
-        return str(phonenumbers.format_number(phonenumber,phonenumbers.PhoneNumberFormat.E164))
+        return validate_phone(value,country)
 
     def create(self, validated_data):
         validated_data.pop('country')  
