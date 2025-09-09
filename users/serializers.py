@@ -15,7 +15,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta():
         model = User
-        fields = ['id', 'username', 'email', 'phone_number', 'password','country']
+        fields = ['id', 'username', 'email', 'phone_number', 'password']
         extra_kwargs={
             'password': {'write_only': True},
         }
@@ -26,9 +26,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     def validate_phone_number(self,value):
         return validate_phone(value)
+    
+    def validate_role_management(self,value):
+        request = self.context.get('request')
+        user = request.user
+        if user.role_management != 'ADMIN' and value in ['ADMIN','STAFF']:
+            raise serializers.ValidationError('Non-Admin can\'t generate admin or staff')
+        return value
 
-    def create(self, validated_data):
-        validated_data.pop('country')  
+    def create(self, validated_data):  
         c_user = User.objects.create_user(**validated_data,
                                           is_active=False # will activated after success verification
                                           )
