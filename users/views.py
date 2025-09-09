@@ -19,7 +19,7 @@ from notifications.services.verification_code import send_verification_code
 class UserRegistrationView(APIView):
     throttle_scope = 'sign_up'
     def post(self, request):
-        serializer = UserRegistrationSerializer(data=request.data)
+        serializer = UserRegistrationSerializer(data=request.data,context = {'request':request})
         serializer.is_valid(raise_exception=True)
         serializer.save() #django fire an post_save event 
          

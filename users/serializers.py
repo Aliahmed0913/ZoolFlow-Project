@@ -15,7 +15,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta():
         model = User
-        fields = ['id', 'username', 'email', 'phone_number', 'password']
+        fields = ['id', 'username', 'email', 'phone_number', 'password','role_management']
         extra_kwargs={
             'password': {'write_only': True},
         }
@@ -30,8 +30,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_role_management(self,value):
         request = self.context.get('request')
         user = request.user
-        if user.role_management != 'ADMIN' and value in ['ADMIN','STAFF']:
-            raise serializers.ValidationError('Non-Admin can\'t generate admin or staff')
+        if value in ['ADMIN','STAFF'] :
+            if not user.is_authenticated:
+                raise serializers.ValidationError('Authentication required to create staff or admin!')
+            elif user.role_management != 'ADMIN':
+                raise serializers.ValidationError('Only admin can assign admin or staff!')
+            
         return value
 
     def create(self, validated_data):  
