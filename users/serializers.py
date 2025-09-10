@@ -4,7 +4,7 @@ from django.contrib.auth.hashers import check_password
 from django.contrib.auth.password_validation import validate_password
 
 from users.validators import validate_phone
-from Restaurant.settings import CODE_LENGTH
+from stackpay.settings import CODE_LENGTH
 
 import logging
 logger = logging.getLogger(__name__)

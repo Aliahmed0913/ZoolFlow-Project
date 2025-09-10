@@ -1,6 +1,6 @@
 from users.models import EmailCode
 from django.core.mail import EmailMessage
-from Restaurant.settings import DEFAULT_FROM_EMAIL
+from stackpay.settings import DEFAULT_FROM_EMAIL
 from django.template.loader import render_to_string
 
 def mail_verify_code(user_code:EmailCode):
