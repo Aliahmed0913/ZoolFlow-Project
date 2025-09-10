@@ -37,18 +37,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError('Only admin can assign admin or staff!')
         return value
     
-    def update(self, instance, validated_data):
-        # based on user role give the user access to admin site or not
-        user_role = validated_data.get('role_management',instance.role_management)
-        if user_role in ['ADMIN','STAFF']:
-            instance.is_staff = True
-        else:
-            instance.is_staff = False
-        return super().update(instance, validated_data)
-    
     def create(self, validated_data):  
+        role = validated_data.get('role_management')
+        is_staff = role in ['ADMIN','STAFF']
+        
         c_user = User.objects.create_user(**validated_data,
-                                          is_active=False # will activated after success verification
+                                          is_active=False, # will activated after success verification
+                                          is_staff = is_staff
                                           )
         return c_user
 
