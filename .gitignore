@@ -6,4 +6,5 @@ __pycache__/
 *.pyc
 
 #celery schedule
-celerybeat-schedule*
+celerybeat-schedule
+celerybeat-schedule-*
