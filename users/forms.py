@@ -1,18 +1,12 @@
 from django import forms
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.contrib.auth.password_validation import validate_password
-from users.validators import validate_phone
 from users.models import User
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ('role_management','phone_number','email')
-    
-    def clean_phone_number(self):
-        phone_number = self.cleaned_data.get('phone_number')
-        valid_number = validate_phone(phone_number)
-        return valid_number
+        fields = ('role_management','email')
     
     def clean_password2(self):
         password = self.cleaned_data.get('password1')
@@ -23,9 +17,4 @@ class CustomUserChangeForm(UserChangeForm):
     
     class Meta(UserChangeForm.Meta):
         model = User
-        fields = ('role_management','phone_number','email')
-    
-    def clean_phone_number(self):
-        phone_number = self.cleaned_data.get('phone_number')
-        valid_number = validate_phone(phone_number)
-        return valid_number
+        fields = ('role_management','email')

@@ -3,7 +3,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.password_validation import validate_password
 
-from users.validators import validate_phone
 from stackpay.settings import CODE_LENGTH
 
 import logging
@@ -15,7 +14,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta():
         model = User
-        fields = ['id', 'username', 'email', 'phone_number', 'password','role_management']
+        fields = ['id', 'username', 'email', 'password','role_management']
         extra_kwargs={
             'password': {'write_only': True},
         }
@@ -23,9 +22,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_password(self, value):    
         validate_password(value,self.instance)
         return value 
-    
-    def validate_phone_number(self,value):
-        return validate_phone(value)
     
     def validate_role_management(self,value):
         request = self.context.get('request')
@@ -55,7 +51,7 @@ class EmailCodeVerificationSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta():
         model = User
-        fields = ['id', 'username', 'role_management', 'email', 'phone_number' , 'is_active']
+        fields = ['id', 'username', 'role_management', 'email', 'is_active']
         read_only_fields = ['id']
     
     def update(self, instance, validated_data):

@@ -12,7 +12,7 @@ class User(AbstractUser):
     email=models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     is_active = models.BooleanField(default=False)
-    phone_number = models.CharField(max_length=20, unique=True)
+    
     
     def __str__(self):
         return self.username

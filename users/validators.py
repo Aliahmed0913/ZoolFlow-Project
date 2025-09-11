@@ -2,8 +2,7 @@ from django.core.exceptions import ValidationError
 import string
 from django.utils.translation import gettext as _
 
-import phonenumbers 
-from phonenumbers.phonenumberutil import NumberParseException
+
 
 class PasswordCustomValidator:
     def validate(self, password:str, user=None):
@@ -34,17 +33,3 @@ class PasswordCustomValidator:
                 'no spaces and contain at least one special character.'
                 )     
 
-def validate_phone(value):
-    try:
-        phonenumber = phonenumbers.parse(value)
-    
-        if not phonenumbers.is_possible_number(phonenumber):
-            raise ValidationError(_('Format is not possible'))
-    
-        if not phonenumbers.is_valid_number(phonenumber):
-            raise ValidationError(_('Not valid for specific region'))
-    
-    except NumberParseException:
-        raise ValidationError(_('Missing or invalid international format.'))
-    
-    return str(phonenumbers.format_number(phonenumber,phonenumbers.PhoneNumberFormat.E164))
