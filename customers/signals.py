@@ -17,7 +17,7 @@ def handle_activation_user(sender, instance, created, **kwargs):
             Customer.objects.create(user = instance)
 
 
-receiver(post_save,sender=Customer)
+@receiver(post_save,sender=Customer)
 def handle_customer_profile(sender, instance, created, **kwargs):
     '''
     Listen to customer creation to associated with address and KYC instances
