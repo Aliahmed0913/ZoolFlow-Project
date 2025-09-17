@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from users.models import User
 from users.serializers import UserRegistrationSerializer,UserProfileSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
 from users.services.verifying_code import VerificationCodeService, VerifyCodeStatus
-from core.permissions.user import IsAdminOrOwner,IsAdmin
+from users.permissions import IsAdminOrOwner,IsAdmin
 from notifications.services.verification_code import send_verification_code
 
 # Create your views here.
