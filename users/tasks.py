@@ -9,10 +9,10 @@ def remove_expired_task(self:Task):
     Celery backgroud task for clean up any expired EmailCode object;
     '''
     try:
-        log.info({'event':'start cleaning useless codes'})
+        log.info({'Event':'Start cleaning useless code'})
         remove_expired_code()
-        log.info({'event':'end with cleaning'})
+        log.info({'Event':'End with cleaning'})
     except Exception as exc:
-        log.exception({'error':'expired code cleaner failed!'})
+        log.exception({'Error':'Expired code cleaner failed!'})
         raise self.retry(exc=exc, countdown=60)
     
