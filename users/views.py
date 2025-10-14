@@ -4,24 +4,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import NotFound
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from users.models import User
 from users.serializers import UserRegistrationSerializer,UserProfileSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
 from users.services.verifying_code import VerificationCodeService, VerifyCodeStatus
-from users.permissions import IsAdminOrOwner,IsAdmin
-from notifications.services.verification_code import send_verification_code
+from users.permissions import IsAdminOrOwner,IsAdmin, IsAdminOrStaff
+from stackpay.settings import THROTTLES_SCOPE
 
 # Create your views here.
-
 class UserRegistrationView(APIView):
     throttle_scope = 'sign_up'
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data,context = {'request':request})
         serializer.is_valid(raise_exception=True)
-        serializer.save() #django fire an post_save event 
+        serializer.save() 
          
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -29,22 +27,20 @@ class UserProfileViewSet(ModelViewSet):
     http_method_names = ['get','patch']
     serializer_class = UserProfileSerializer
     queryset = User.objects.all()
-    permission_classes = IsAuthenticated
+    permission_classes = [IsAuthenticated]
     
     def get_permissions(self):
-        if self.action in ['list','retrieve','partial_update']:
-            return [IsAdmin()]
+        if self.action in ['list','retrieve']:
+            return [IsAdminOrStaff()]
+        elif self.action == 'partial_update':
+            return [IsAdmin()]     
         return [IsAdminOrOwner()]
     
     def get_throttles(self):
-        if self.action == 'change_password':
-            self.throttle_scope = 'new_password'
-        else:
-            self.throttle_scope = 'profile'
+        self.throttle_scope = THROTTLES_SCOPE.get(self.action,'profile')
         return super().get_throttles()
     
-    
-    @action(detail=False, methods=['GET','PATCH'],url_path='mine')
+    @action(detail=False, methods=['GET','PATCH'],url_path='mine',url_name='mine')
     def my_profile(self,request):
         user = request.user
         data = request.data
@@ -58,12 +54,12 @@ class UserProfileViewSet(ModelViewSet):
         serialized_user = self.get_serializer(user)
         return Response(serialized_user.data, status=status.HTTP_200_OK)
         
-    @action(detail=False, methods=['PATCH'],url_path='mine/new-password') 
+    @action(detail=False, methods=['PATCH'],url_path='mine/new-password',url_name='new-password') 
     def change_password(self, request):
         serializer = ChangePasswordSerializer(data=request.data, context={'request':request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({'message':'Password successfuly updated!'},status=status.HTTP_200_OK)
+        return Response({'Message':'Password successfully updated.'},status=status.HTTP_200_OK)
         
 
 class VerificationCodeViewSet(GenericViewSet):
@@ -74,23 +70,21 @@ class VerificationCodeViewSet(GenericViewSet):
     }
     
     def get_throttles(self):
-        self.throttle_scope = self.verification_throttle_scope.get(self.action, 'default')
+        self.throttle_scope = THROTTLES_SCOPE.get(self.action, 'default')
         return super().get_throttles()
     
-    @action(detail=False, methods=['POST'], url_path='validate')
+    @action(detail=False, methods=['POST'], url_path='validate',url_name='validate')
     def verifying_user_code(self,request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         recived_code = serializer.validated_data.get('code')
         email = serializer.validated_data['email'] 
         
-        user = self.get_user(email)
-
         if not recived_code:
-            return Response({'code':'this field is required!'},status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail':'The code field is required.'},status=status.HTTP_400_BAD_REQUEST)
         
-        service = VerificationCodeService(user.id)
-        result = service.validate_code(recived_code) 
+        service = VerificationCodeService(email)
+        result,user = service.validate_code(recived_code) 
               
         if result == VerifyCodeStatus.VALID:
             refresh_token = RefreshToken.for_user(user=user)
@@ -100,36 +94,30 @@ class VerificationCodeViewSet(GenericViewSet):
             },status=status.HTTP_200_OK)
         
         elif result == VerifyCodeStatus.IN_VALID:
-            return Response({'code':'invalid code'},status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail':'Invalid code'},status=status.HTTP_400_BAD_REQUEST)
        
         elif result == VerifyCodeStatus.NOT_FOUND:
-            return Response({'code':'not found'},status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail':'Your code was not found.'},status=status.HTTP_404_NOT_FOUND)
        
-        return Response({'code':'expired!'},status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail':'The code has expired!'},status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=False, methods=['POST'], url_path='resend')
+    @action(detail=False, methods=['POST'], url_path='resend',url_name='resend-code')
     def resend_user_code(self,request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         
-        user = self.get_user(email)
-        service = VerificationCodeService(user.id)
+        service = VerificationCodeService(email)
         code = service.recreate_code_on_demand()
         
         if code == VerifyCodeStatus.CREATED:
             return Response({'Code':'A new verification code is sent'},status=status.HTTP_200_OK)
         elif code == VerifyCodeStatus.VALID:
-            return Response({'code':'currently valid'})
-        return Response({'code':'Can\'t recreate. user is verified and activated'})
-
-    def get_user(self,email):
-        try:
-            return User.objects.get(email=email)
-        except User.DoesNotExist:
-            raise NotFound({'error':f'invalid email'})
+            return Response({'detail':'The code is currently valid.'},status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail':'Can\'t send code, user is verified.'},status=status.HTTP_400_BAD_REQUEST)
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     '''Customize token-generator to limit request per minute to 10'''
     throttle_scope = 'login'
+    
 
