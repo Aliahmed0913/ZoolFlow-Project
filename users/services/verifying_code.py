@@ -8,20 +8,24 @@ import logging, secrets
 
 logger = logging.getLogger(__name__)
 
-class VerifyCodeStatus(Enum):
-    VALID = 'valid'
-    NOT_FOUND = 'not_found'
-    EXPIRED = 'expired'
-    IN_VALID = 'in_valid'
-    ACTIVE = 'active'
-    CREATED = 'created'
-    
-class VerificationCodeService:
+class VerificationError(Exception):pass
+class CodeExpiredError(VerificationError):pass
+class CodeNotFoundError(VerificationError):pass
+class InvalidCodeError(VerificationError):pass
+
+class VerificationCodeSerivce:
+    class VerifyCodeStatus(Enum):
+        VALID = 'valid'
+        ACTIVE = 'active'
+        CREATED = 'created'
     
     DEFAULT_EXPIRY = timedelta(minutes=10)
-    
-    def __init__(self,user_id):
-        self.user = User.objects.get(id=user_id)
+    def __init__(self,user_email):
+        try:
+            self.user = User.objects.get(email=user_email)
+        except User.DoesNotExist:
+            logger.warning('Entered user email not found.')
+            raise VerificationError('User not found')
     
     @transaction.atomic
     def create_code(self, expiry:timedelta=None):
@@ -37,7 +41,7 @@ class VerificationCodeService:
                 expiry_time=timezone.now() + (expiry or self.DEFAULT_EXPIRY)
             )
         
-            logger.info(f'New code successfuly created for {self.user.username}.')
+            logger.info('Code created.',extra={'user_email':self.user.email})
             return generated_email_code
     
     def validate_code(self,received_code:str):
@@ -47,46 +51,47 @@ class VerificationCodeService:
         verify_code = self.active_code()
         
         if not verify_code:
-            logger.warning(f'there is no active code for {self.user.username}')            
-            return VerifyCodeStatus.NOT_FOUND
+            logger.warning('No active code.',extra={'user_email':self.user.email})            
+            raise CodeNotFoundError('User doesn\'t have a valid code.')
     
         if self.is_expired_code(verify_code):
-            return VerifyCodeStatus.EXPIRED
+            self.disable_code(verify_code)
+            raise CodeExpiredError('User verify code has expired.')
     
         elif str(verify_code.code) == received_code:
             self.user.is_active = True
             self.user.save(update_fields=['is_active'])
             self.disable_code(verify_code)
-            logger.info(f'welcome {self.user.username} your account has verified')
-            return VerifyCodeStatus.VALID
+            logger.info('Account activated',extra={'user_email':self.user.email})
+            return self.VerifyCodeStatus.VALID, self.user
         
         logger.warning('this invalid code') 
-        return VerifyCodeStatus.IN_VALID
+        raise InvalidCodeError('Entered code is invalid.')
     
     def recreate_code_on_demand(self):
         '''Check if there is no active verify code for not activated user and generate new one.'''
         current_code = self.active_code()
         
         #check if the user has been verified before
-        if self.user.is_active == True:
-            return VerifyCodeStatus.ACTIVE
+        if self.user.is_active:
+            logger.warning('user has verified.')
+            return self.VerifyCodeStatus.ACTIVE
         
-        # see if there is no code for that user or is expired if exsit or not
-        elif not current_code or self.is_expired_code(current_code):
+        # see if the code for that user is expired disable it and create new one
+        elif self.is_expired_code(current_code):
+                self.disable_code(current_code)
                 self.create_code() 
-                return VerifyCodeStatus.CREATED
+                return self.VerifyCodeStatus.CREATED
         
         remaining = current_code.expiry_time - timezone.now()
-        logger.info(f'verify code has {remaining.seconds // 60} minute left')    
-        return VerifyCodeStatus.VALID
+        logger.info('There is active code',extra={'remaining_time':f'{remaining.seconds // 60 }m'})    
+        return self.VerifyCodeStatus.VALID
     
     def is_expired_code(self,code):
         # check if code expired time exceeded the current time 
-        if code.expiry_time <= timezone.now():
-            logger.warning('code is expired!')
-            self.disable_code(code)
+        if code.expiry_time < timezone.now():
+            logger.warning('Verify code expired.',extra={'user_email':self.user.email}) 
             return True
-        return False   
     
     def disable_code(self,code):
         ''' Marked code as used.'''
