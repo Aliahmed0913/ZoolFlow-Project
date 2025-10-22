@@ -1,3 +1,4 @@
+import logging
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
@@ -5,9 +6,8 @@ from django.contrib.auth.password_validation import validate_password
 
 from stackpay.settings import CODE_LENGTH
 
-import logging
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -34,6 +34,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             elif user.role_management != 'ADMIN':
                 raise serializers.ValidationError('Only admin can assign admin or staff!')
         return value
+    
     def create(self, validated_data):  
         role = validated_data.get('role_management',User.Roles.CUSTOMER)
         is_staff = role in [User.Roles.ADMIN,User.Roles.STAFF] 
