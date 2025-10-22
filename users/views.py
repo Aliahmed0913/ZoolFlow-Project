@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from users.models import User
 from users.serializers import UserRegistrationSerializer,UserProfileSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
-from users.services.verifying_code import VerificationCodeService, VerifyCodeStatus
+from users.services.verifying_code import VerificationCodeSerivce
 from users.permissions import IsAdminOrOwner,IsAdmin, IsAdminOrStaff
 from stackpay.settings import THROTTLES_SCOPE
 
@@ -83,21 +83,15 @@ class VerificationCodeViewSet(GenericViewSet):
         if not recived_code:
             return Response({'detail':'The code field is required.'},status=status.HTTP_400_BAD_REQUEST)
         
-        service = VerificationCodeService(email)
+        service = VerificationCodeSerivce(email)
         result,user = service.validate_code(recived_code) 
               
-        if result == VerifyCodeStatus.VALID:
+        if result == service.VerifyCodeStatus.VALID:
             refresh_token = RefreshToken.for_user(user=user)
             return Response({
             'refresh':str(refresh_token),
             'access':str(refresh_token.access_token),
             },status=status.HTTP_200_OK)
-        
-        elif result == VerifyCodeStatus.IN_VALID:
-            return Response({'detail':'Invalid code'},status=status.HTTP_400_BAD_REQUEST)
-       
-        elif result == VerifyCodeStatus.NOT_FOUND:
-            return Response({'detail':'Your code was not found.'},status=status.HTTP_404_NOT_FOUND)
        
         return Response({'detail':'The code has expired!'},status=status.HTTP_400_BAD_REQUEST)
     
@@ -107,12 +101,12 @@ class VerificationCodeViewSet(GenericViewSet):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         
-        service = VerificationCodeService(email)
+        service = VerificationCodeSerivce(user_email=email)
         code = service.recreate_code_on_demand()
         
-        if code == VerifyCodeStatus.CREATED:
+        if code == service.VerifyCodeStatus.CREATED:
             return Response({'Code':'A new verification code is sent'},status=status.HTTP_200_OK)
-        elif code == VerifyCodeStatus.VALID:
+        elif code == service.VerifyCodeStatus.VALID:
             return Response({'detail':'The code is currently valid.'},status=status.HTTP_400_BAD_REQUEST)
         return Response({'detail':'Can\'t send code, user is verified.'},status=status.HTTP_400_BAD_REQUEST)
 
