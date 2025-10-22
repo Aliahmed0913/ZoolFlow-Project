@@ -5,7 +5,14 @@ from django.utils.translation import gettext as _
 from datetime import date
 
 ALLOW_AGE = 18
-
+CUSTOMER_NAME_LENGTH = 3
+def validate_customer_name(value:str):
+    if not value[0].isupper():
+        raise ValidationError(_('Name must start with an uppercase letter.'))
+    if len(value) < CUSTOMER_NAME_LENGTH:
+        raise ValidationError(_(F'Name must be more than {CUSTOMER_NAME_LENGTH} characters.'))
+        
+        
 def validate_phone(value:str):
     try:
         phonenumber = phonenumbers.parse(value)
@@ -32,5 +39,6 @@ def valid_age(value:date):
     if age >= ALLOW_AGE:          
         return value
     raise ValidationError(_('Customer too young'))
+
     
     
