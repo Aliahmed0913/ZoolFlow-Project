@@ -6,10 +6,10 @@ from rest_framework.routers import DefaultRouter
 app_name = 'customers'
 
 customer_address = DefaultRouter()
-customer_address.register('address',CustomerAddressViewSet,basename='customer_address')
+customer_address.register('address',CustomerAddressViewSet,basename='addresses')
 
 urlpatterns =[
-    path('',include(customer_address.urls)),
-    path('profile/',CustomerProfileAPIView.as_view()),
+    path('',include(customer_address.urls),name='customer-address'),
+    path('profile/',CustomerProfileAPIView.as_view(),name='customer-profile'),
     path('profile/upload-docs/',KnowYourCustomerAPIView.as_view()),
 ]

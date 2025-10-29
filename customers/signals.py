@@ -19,6 +19,7 @@ def handle_activation_user(sender, instance, created, **kwargs):
     if not created and instance.is_active and instance.role_management == 'CUSTOMER':
         if not hasattr(instance,'customer_profile'):
             bootstrap_customer(user=instance)
+            logger.info('Customer and all refrences setup.')
 
 @receiver(post_save,sender=KYC)
 def handle_approved_customer(sender, instance, created, **kwargs):
@@ -29,7 +30,7 @@ def handle_approved_customer(sender, instance, created, **kwargs):
         customer = instance.customer
         if instance.status_tracking == KYC.Status.APPROVED:
             customer.is_verified = True
-            logger.info(f'{customer.full_name} has been verified successfully.')
+            logger.info(f'{customer.user.email} has been verified successfully.')
         
         elif instance.status_tracking == KYC.Status.REJECTED :
             customer.is_verified = False

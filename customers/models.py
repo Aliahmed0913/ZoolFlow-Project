@@ -23,7 +23,7 @@ class Customer(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return self.full_name or self.user.username
+        return self.first_name or self.user.username
   
 class Address(models.Model):
     customer = models.ForeignKey(Customer,on_delete=models.CASCADE,related_name='addresses')
@@ -51,7 +51,7 @@ class Address(models.Model):
         super().save(*arg, **kwargs)
     
     def __str__(self):
-        return f'{self.customer.full_name or self.customer.user.username} - {self.state}'
+        return f'{self.customer.first_name or self.customer.user.username} - {self.state}'
     
 class KnowYourCustomer(models.Model):
     class DocumentType(models.TextChoices):
@@ -74,5 +74,5 @@ class KnowYourCustomer(models.Model):
     reviewed_at = models.DateTimeField(null=True,blank=True)
     
     def __str__(self):
-        return f'{self.customer.full_name or self.customer.user.username} - {self.document_type}' 
+        return f'{self.customer.first_name or self.customer.user.username} - {self.document_type}' 
     

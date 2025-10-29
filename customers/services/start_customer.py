@@ -6,4 +6,4 @@ def bootstrap_customer(user):
     customer = Customer.objects.create(user = user)
     Address.objects.create(customer=customer)
     KnowYourCustomer.objects.create(customer=customer)
-    return customer
+    return True
