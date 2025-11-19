@@ -16,7 +16,6 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
             }
     
 class CustomerAddressSerializer(serializers.ModelSerializer):
-    
     class Meta():
         model = Address
         fields = ['id','customer','country','state','city','line','building_number','appartment_number','postal_code', 'main_address']
@@ -55,7 +54,6 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)        
     
     def create(self, validated_data):
-        
         # add customer_id from the request  
         request = self.context.get('request')
         customer = getattr(request.user,'customer_profile')
@@ -71,8 +69,6 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'Addresses':'You have reached maximum capacity'})
         
         self._enforce_main_address(customer,validated_data['main_address'])
-        
-        
         return super().create(validated_data)
     
 class KnowYourCustomerSerializer(serializers.ModelSerializer):
