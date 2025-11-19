@@ -1,13 +1,11 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
 from users.models import User
 from customers.models import KnowYourCustomer as KYC
 from customers.services.start_customer import bootstrap_customer
-
 import logging
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 @receiver(post_save,sender=User)
 def handle_activation_user(sender, instance, created, **kwargs):
