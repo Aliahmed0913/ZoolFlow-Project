@@ -9,7 +9,7 @@ customer_address = DefaultRouter()
 customer_address.register('address',CustomerAddressViewSet,basename='addresses')
 
 urlpatterns =[
-    path('',include(customer_address.urls),name='customer-address'),
     path('profile/',CustomerProfileAPIView.as_view(),name='customer-profile'),
-    path('profile/upload-docs/',KnowYourCustomerAPIView.as_view()),
+    path('',include(customer_address.urls),name='customer-address'),
+    path('profile/upload-docs/',KnowYourCustomerAPIView.as_view(),name='kyc-docs'),
 ]
