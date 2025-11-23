@@ -35,7 +35,7 @@ class Address(models.Model):
     postal_code = models.CharField(max_length=20,blank=True,null=True)
         
     building_number = models.CharField(max_length=10,blank=True,null=True)
-    appartment_number = models.CharField(max_length=10,blank=True,null=True)
+    apartment_number = models.CharField(max_length=10,blank=True,null=True)
     main_address = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
