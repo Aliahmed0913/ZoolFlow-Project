@@ -1,7 +1,8 @@
 import pytest
 from customers.models import Customer, Address, KnowYourCustomer
+from users.models import EmailCode
 
-@pytest.mark.django_db()   # continue here work
+@pytest.mark.django_db(transaction=True)   # continue here work
 def test_customer_startup(create_activate_user,mock_mail):
     # this signal takecare of creating an customer-profile, address, KYC instance.
     # all reference to that customer

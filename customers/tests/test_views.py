@@ -51,7 +51,7 @@ class TestAddressViewSet:
                ,'city':'mansoura'
                ,'line':'bn-ziad'
                ,'building_number':'14-a'
-               ,'appartment_number':'a-33'
+               ,'apartment_number':'a-33'
                ,'postal_code':'12345allid'
                }
     assert api_client.post(url,data=payload).status_code == status.HTTP_400_BAD_REQUEST

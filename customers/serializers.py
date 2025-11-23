@@ -18,10 +18,10 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
 class CustomerAddressSerializer(serializers.ModelSerializer):
     class Meta():
         model = Address
-        fields = ['id','customer','country','state','city','line','building_number','appartment_number','postal_code', 'main_address']
+        fields = ['id','customer','country','state','city','line','building_number','apartment_number','postal_code', 'main_address']
         read_only_fields = ['id','customer']
         extra_kwargs = (
-            {f :{'required':True} for f in ('state','city','line','building_number','appartment_number','postal_code')}
+            {f :{'required':True} for f in ('state','city','line','building_number','apartment_number','postal_code')}
             | {'main_address': {'default':True}}
             )
             
