@@ -117,7 +117,7 @@ class PayMob():
                 "first_name": self.customer.first_name,
                 "last_name": self.customer.last_name,
                 "street": self.address.line,
-                "building": self.address.building_nubmer,
+                "building": self.address.building_number,
                 "phone_number":self.customer.phone_number,
                 "postal_code": self.address.postal_code,
                 "city": self.address.city,
