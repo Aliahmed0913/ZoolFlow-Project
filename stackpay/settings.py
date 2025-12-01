@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_countries',
+    'django_filters',
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
@@ -138,7 +139,6 @@ AUTH_USER_MODEL = 'users.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR/ 'media'
 
-PAYMOB_API_KEY=env('PAYMOB_API_KEY')
 
 LOGGING = {
     'version': 1,
@@ -173,7 +173,8 @@ LOGGING = {
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES':[
-        'rest_framework_simplejwt.authentication.JWTAuthentication',      
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  
+        'rest_framework.authentication.SessionAuthentication',    
     ],
     
     
@@ -189,7 +190,9 @@ REST_FRAMEWORK = {
         'new_password':'10/day',
         'resend_code':'3/minute',
         'default':'100/houre'
-    }
+    },
+    
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
 
 THROTTLES_SCOPE = {
@@ -221,6 +224,23 @@ CUSTOMER_NAME_LENGTH = 3
 DOCUMENT_SIZE = 250 *1024
 ADDRESSES_COUNT = 3
 STATE_LENGTH = 3
+
+#PayMob config
+PAYMOB_API_KEY=env('PAYMOB_API_KEY')
+AUTH_PAYMOB_TOKEN = env('AUTH_PAYMOB_TOKEN')
+PAYMOB_AUTH_CACH_KEY = env('PAYMOB_AUTH_CACH_KEY')
+ORDER_PAYMOB_URL = env('ORDER_PAYMOB_URL')
+PAYMOB_PAYMENT_URL_KEY = env('PAYMOB_PAYMENT_URL_KEY')
+PAYMOB_PAYMENT_KEY = env('PAYMOB_PAYMENT_KEY')
+
+CONNECTION_TIMEOUT = (5,15)
+SUPPORTED_COUNTRIES = {
+    "Egypt": "EGP",
+    "Jordan": "JOD",
+    "Kenya": "KES",
+    "Pakistan": "PKR",
+    "United Arab Emirates": "AED",
+}
 
 # CELERY_CONFIGURATION
 from .celery_beat import CELERY_BEAT_SCHEDULE
