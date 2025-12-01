@@ -8,11 +8,13 @@ A Django REST Framework project that demonstrates a simple payment integration w
 
 ### User App
 - Handles **user registration** and authentication.
-- A **Django signal** triggers the Notification app when a new user is created.
+- All new registration triggers signal to create an email code
+- Integrates with **Celery** to remove used email codes from the database asynchronously.
 
 ### Notification App
-- Sends an **email code** to newly registered users.
-- Integrates with **Celery** to remove used email codes from the database asynchronously.
+- The notification proccess also done in background with **Celery worker**
+- A **Django signal** triggers the Notification app when a new email code is created.
+- Sends an **email code** to newly registered users with welcome message.
 
 ### Customer App
 - Manages customer profiles and addresses.
@@ -29,7 +31,7 @@ A Django REST Framework project that demonstrates a simple payment integration w
   - Webhook service for secure HMAC verification and transaction updates.
 
 ### Background Tasks
-- **Celery worker** removes used email codes from the database automatically.
+- **Celery worker** handle user notify and removes used email codes from the database automatically.
 
 ---
 
