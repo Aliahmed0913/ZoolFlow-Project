@@ -6,13 +6,6 @@ from django.db.models.signals import post_save
 from notifications.signals import handle_verify_code_mail as notif_signals
 from customers.signals import handle_activation_user as user_signal
 
-@pytest.fixture(scope='session')
-def api_call():
-    return APIClient()
-
-@pytest.fixture
-def mock_mail(mocker):
-    return mocker.patch('notifications.services.verification_code.mail_code_task.delay')
 
 @pytest.fixture(scope="session", autouse=True)
 def fast_password_hasher():
