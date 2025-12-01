@@ -1,5 +1,6 @@
 from django.core.cache import cache
 import requests, logging
+from transactions.services.http_client import get_session_with_retries
 import uuid
 from customers.models import Address
 from stackpay.settings import SUPPORTED_COUNTRIES,CONNECTION_TIMEOUT,PAYMOB_AUTH_CACH_KEY,PAYMOB_API_KEY,AUTH_PAYMOB_TOKEN,ORDER_PAYMOB_URL,PAYMOB_PAYMENT_KEY,PAYMOB_PAYMENT_URL_KEY
@@ -19,6 +20,7 @@ class PayMob():
         self.user = self.customer.user
         self.currency = currency
         self.address = address
+        self.session = get_session_with_retries()
         
         if not (currency and address):
             self.currency,self.address = self.country_native_currencies()
@@ -57,7 +59,7 @@ class PayMob():
         Return the requested field from the endpoint provided 
         '''
         try:
-            response = requests.post(url=endpoint, json=payload, timeout=CONNECTION_TIMEOUT)
+            response = self.session.post(url=endpoint, json=payload, timeout=CONNECTION_TIMEOUT)
             response.raise_for_status()
             
             data = response.json()
@@ -72,7 +74,7 @@ class PayMob():
         
         except requests.RequestException as pe:
             logger.error(f'Request for PayMob {field_name} fail.')
-            raise PayMobServiceError(str(pe),'PayMob API fail')
+            raise PayMobServiceError('PayMob API fail',details=str(pe))
     
 
     def get_auth_token(self):
@@ -93,6 +95,9 @@ class PayMob():
         return token
     
     def _build_order_payload(self,merchant_id,amount_cents):
+        '''
+        Set payload for creating an order in PayMob
+        '''
         token = self.get_auth_token()
         payload = {
             "auth_token": token,
@@ -105,6 +110,9 @@ class PayMob():
         return payload
     
     def _build_payment_payload(self,amount_cents,paymob_id):
+        '''
+        Set payload for requesting the payment key token 
+        '''
         token = self.get_auth_token()
         payload = {
             'auth_token': token,
@@ -112,17 +120,17 @@ class PayMob():
             "currency": self.currency,
             "order_id": paymob_id,
             "billing_data":{
-                "apartment": self.address.apartment_number,
-                "email": self.user.email,
-                "first_name": self.customer.first_name,
-                "last_name": self.customer.last_name,
-                "street": self.address.line,
-                "building": self.address.building_number,
-                "phone_number":self.customer.phone_number,
-                "postal_code": self.address.postal_code,
-                "city": self.address.city,
-                "country": self.address.country.name,
-                "state": self.address.state,
+                "apartment": self.address.apartment_number or 'NA',
+                "email": self.user.email or '',
+                "first_name": self.customer.first_name or '',
+                "last_name": self.customer.last_name or 'un-known',
+                "street": self.address.line or 'NA',
+                "building": self.address.building_number or 'NA',
+                "phone_number":self.customer.phone_number or 'NA',
+                "postal_code": self.address.postal_code or 'NA',
+                "city": self.address.city or 'NA',
+                "country": self.address.country.name or 'NA',
+                "state": self.address.state or 'NA',
                 "floor": "NA",
                 "shipping_method": "PKG",
             },
@@ -136,7 +144,7 @@ class PayMob():
         Create an order in PayMob and return PayMob order ID.
         
         Raises:
-            PayMobSerivceError if the API fails or returns no order ID. 
+            PayMobServiceError if the API fails or returns no order ID. 
         '''
            
         payload = self._build_order_payload(merchant_id,amount_cents)
@@ -152,7 +160,3 @@ class PayMob():
         payment_token = self._request_field(payload=payload,endpoint=PAYMOB_PAYMENT_URL_KEY,
                                            requested_field='token',field_name='payment token')
         return payment_token
-    
-
-        
-        
