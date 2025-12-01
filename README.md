@@ -90,13 +90,13 @@ A Django REST Framework project that demonstrates a simple payment integration w
    cd stackpay
 
 2. Install dependencies: 
-pip install -r requirements.txt
+    pip install -r requirements.txt
 
 3. - Set environment variables in .env:
-PAYMOB_API_KEY=your_api_key
-PAYMOB_PAYMENT_KEY=your_payment_key
-SECRET_KEY=your_django_secret
+    PAYMOB_API_KEY=your_api_key
+    PAYMOB_PAYMENT_KEY=your_payment_key
+    SECRET_KEY=your_django_secret
 
-4. run migrations
+4. run migrations:
 5. - Start Celery worker:
-celery -A stackpay worker -l info expired,celery
+    celery -A stackpay worker -l info expired,celery
