@@ -1,10 +1,10 @@
-# 🛒 StackPay – Basic Payment Integration Project
+#  StackPay – Basic Payment Integration Project
 
 A Django REST Framework project that demonstrates a simple payment integration workflow with **PayMob**, user registration, notifications, and Celery background tasks.
 
 ---
 
-## 🚀 Features
+##  Features
 
 ### User App
 - Handles **user registration** and authentication.
@@ -33,7 +33,7 @@ A Django REST Framework project that demonstrates a simple payment integration w
 
 ---
 
-## ⚙️ Tech Stack
+## Tech Stack
 - **Django** + **Django REST Framework**
 - **Celery** + **Redis** (for async tasks)
 - **PayMob API** integration
@@ -42,7 +42,7 @@ A Django REST Framework project that demonstrates a simple payment integration w
 
 ---
 
-## 🧪 Running Locally
+## Running Locally
 
 1. Clone the repo:
    ```bash
