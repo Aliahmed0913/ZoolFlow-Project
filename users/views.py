@@ -16,8 +16,8 @@ from stackpay.settings import THROTTLES_SCOPE
 
 # Create your views here.
 class LoginView(TemplateView):
-    template_name='user/templates/login.html'
-    
+    template_name='users/templates/login.html'
+
 class UserRegistrationView(APIView):
     throttle_scope = 'sign_up'
     def post(self, request):
