@@ -3,153 +3,379 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Checkout</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StackPay Checkout</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f9fafb;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+        /* === Theme variables === */
+        :root {
+            --bg1: #f0f4f8;
+            --bg2: #d9e2ec;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --primary: #0d6efd;
+            --primary-hover: #0b5ed7;
+            --danger: #d9534f;
+            --success: #198754;
+            --warning: #f59e0b;
+            --border: #d1d5db;
+            --ring: #93c5fd;
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg1), var(--bg2));
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+        }
+
+        /* === Card === */
         .card {
-            background: #fff;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 400px;
+            width: 100%;
+            max-width: 480px;
+            background: var(--card);
+            color: var(--text);
+            border-radius: 16px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+            padding: 28px;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            transition: transform .2s ease;
+        }
+
+        /* Header */
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-weight: 700;
+            color: var(--text);
+            font-size: 26px;
+            line-height: 1.2;
             text-align: center;
         }
 
-        input,
-        button {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
+        .subtitle {
+            text-align: center;
+            color: var(--muted);
+            margin-bottom: 18px;
             font-size: 14px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
         }
 
-        iframe {
-            margin-top: 20px;
-            border: none;
+        /* Form */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: var(--muted);
+        }
+
+        input[type="number"] {
             width: 100%;
-            height: 500px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            background: #fff;
+            color: var(--text);
+            outline: none;
+            transition: border-color .15s ease, box-shadow .15s ease;
         }
 
+        input[type="number"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--ring);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: var(--primary);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .15s ease;
+            margin-top: 6px;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Status */
         .status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 6px;
-            font-weight: bold;
+            margin-top: 14px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            color: var(--muted);
         }
 
         .status.pending {
-            color: orange;
+            color: var(--warning);
         }
 
         .status.success {
-            color: green;
+            color: var(--success);
         }
 
         .status.failed {
-            color: red;
+            color: var(--danger);
+        }
+
+        /* Iframe */
+        .iframe-wrap {
+            margin-top: 16px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        iframe {
+            display: block;
+            border: none;
+            width: 100%;
+            height: 540px;
+            /* generous height for payment flows */
+            background: #fff;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 14px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* === Modern Logout Button === */
+        .logout-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            /* modern red gradient */
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+            transition: all 0.25s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(220, 38, 38, 0.45);
+        }
+
+        .logout-btn:active {
+            transform: scale(0.96);
         }
     </style>
 </head>
-</head>
 
 <body>
-    <div class="card">
-        <h2>StackPay Test Payment</h2>
+    <button id="logoutBtn" class="logout-btn">Logout</button>
+    <main class="card" aria-labelledby="title">
+        <div class="logo" id="title">StackPay Checkout</div>
+        <div class="subtitle">Enter your amount and proceed securely via PayMob</div>
 
-        <input type="text" id="jwtToken" placeholder="Paste your JWT token from Postman" />
-        <input type="number" id="amount" placeholder="Enter amount (EGP)" />
-        <button id="payBtn">Create Payment</button>
+        <!-- Amount only; user is already authenticated via JWT/session -->
+        <div class="form-group">
+            <label for="amount">Amount (EGP)</label>
+            <input type="number" id="amount" placeholder="e.g., 250.00" min="1" step="0.01" />
+        </div>
 
-        <div id="iframeContainer"></div>
-        <div id="statusContainer"></div>
-    </div>
+        <button class="btn" id="payBtn">Create Payment</button>
+
+        <div id="statusContainer" class="status" aria-live="polite"></div>
+        <div id="iframeContainer" class="iframe-wrap" hidden></div>
+
+        <div class="footer">Secure payments powered by StackPay & PayMob</div>
+    </main>
 
     <script>
-        const API_URL = "{% url 'transactions:transaction-create' %}"; // DRF endpoint
-        const PAYMOB_IFRAME_ID = '962850';
+        const API_URL = "{% url 'transactions:transaction-create' %}";
+        const REFRESH_URL = "{% url 'users:refresh-token' %}"; // endpoint to refresh access token
+        const PAYMOB_IFRAME_ID = "962850";
+        const LOGOUT_URL = "{% url 'users:refresh-disabled' %}";
+        const LOGIN_URL = "{% url 'users:login-view' %}";
 
-        async function createPayment() {
-            const token = document.getElementById("jwtToken").value.trim();
-            const statusContainer = document.getElementById("statusContainer");
+        function normalizeAmount(raw) {
+            const n = Number.parseFloat(String(raw).trim());
+            if (Number.isNaN(n)) return null;
+            const fixed = Number.parseFloat(n.toFixed(2));
+            return fixed > 0 ? fixed : null;
+        }
+        // Utility to read cookie value
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+        const csrftoken = getCookie("csrftoken"); // read CSRF cookie
 
-            let amount = document.getElementById("amount").value.trim();
+        async function fetchWithToken(url, options = {}) {
+            let accessToken = sessionStorage.getItem("accessToken");
 
-            if (!token || !amount) {
-                alert("Please enter both token and amount.");
-                return;
-            }
+            if (!options.headers) options.headers = {};
+            options.headers["Authorization"] = `Bearer ${accessToken}`;
+            options.headers["Content-Type"] = "application/json";
+            options.headers['X-CSRFToken'] = csrftoken
+            options.credentials = "include";
 
-            const amount_restricted = parseFloat(amount)
-            amount = parseFloat(amount_restricted.toFixed(2))
-            if (amount <= 0) {
-                alert('Amount can\'t be negative or zero');
-                return;
-            }
+            let res = await fetch(url, options);
 
-            statusContainer.textContent = "";
-            statusContainer.className = "status pending";
-            statusContainer.textContent = "Creating transaction...";
-
-            try {
-                const response = await fetch(API_URL, {
+            if (res.status === 401) {
+                // Try refreshing
+                const refreshRes = await fetch(REFRESH_URL, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ amount: amount }),
+
+                    credentials: "include"
                 });
 
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(JSON.stringify(err));
+                if (!refreshRes.ok) {
+                    // Show message and redirect
+                    const statusEl = document.getElementById("statusContainer");
+                    statusEl.className = "status failed";
+                    statusEl.textContent = "Session expired. Redirecting to login...";
+                    setTimeout(() => {
+                        window.location.href = "{% url 'users:login-view'%}";
+                    }, 2000);
+                    return null; // stop further processing
                 }
 
-                const data = await response.json();
-                console.log("Transaction response:", data);
+                const refreshData = await refreshRes.json();
+                accessToken = refreshData.access;
+                sessionStorage.setItem("accessToken", accessToken);
 
-                // --- Handle status from backend ---
+                // Retry original request
+                options.headers["Authorization"] = `Bearer ${accessToken}`;
+                res = await fetch(url, options);
+            }
+
+            return res;
+        }
+
+        async function createPayment() {
+            const statusEl = document.getElementById("statusContainer");
+            const iframeWrap = document.getElementById("iframeContainer");
+            iframeWrap.hidden = true;
+
+            const amount = normalizeAmount(document.getElementById("amount").value);
+            if (!amount) {
+                statusEl.className = "status failed";
+                statusEl.textContent = "Please enter a valid positive amount.";
+                return;
+            }
+
+            const accessToken = sessionStorage.getItem("accessToken");
+            if (!accessToken) {
+                statusEl.className = "status failed";
+                statusEl.textContent = "Not authenticated. Redirecting to login...";
+                setTimeout(() => {
+                    window.location.href = "{% url 'users:login-view' %}";
+                }, 2000);
+                return;
+            }
+
+            statusEl.className = "status pending";
+            statusEl.textContent = "Creating transaction...";
+
+            try {
+                const res = await fetchWithToken(API_URL, {
+                    method: "POST",
+
+                    body: JSON.stringify({ amount })
+                });
+
+                if (!res) return; // fetchWithToken already handled redirect
+
+                if (!res.ok) {
+                    let detail = "Transaction failed";
+                    try {
+                        const err = await res.json();
+                        detail = err.detail || JSON.stringify(err);
+                    } catch { }
+                    statusEl.className = "status failed";
+                    statusEl.textContent = 'Transaction failed';
+                    return;
+                }
+
+                const data = await res.json();
+
                 if (data.status) {
-                    let cssClass = "pending";
-                    if (data.status.toLowerCase() === "success") cssClass = "success";
-                    else if (data.status.toLowerCase() === "failed") cssClass = "failed";
-
-                    statusContainer.className = `status ${cssClass}`;
-                    statusContainer.textContent = `Transaction Status: ${data.status}`;
-                }
-
-                // --- Display iframe if returned ---
-                if (data.paymob_payment_token) {
-                    let iframe_url = `https://accept.paymob.com/api/acceptance/iframes/${PAYMOB_IFRAME_ID}?payment_token=${data.paymob_payment_token}`;
-                    const iframeContainer = document.getElementById("iframeContainer");
-                    iframeContainer.innerHTML = `<iframe src="${iframe_url}" title="Payment"></iframe>`;
-
+                    const s = String(data.status).toLowerCase();
+                    statusEl.className = `status ${["success", "failed", "pending"].includes(s) ? s : "pending"}`;
+                    statusEl.textContent = `Transaction status: ${data.status}`;
                 } else {
-                    alert("No PayMob payment token returned from server!");
+                    statusEl.className = "status pending";
+                    statusEl.textContent = "Initializing PayMob payment...";
                 }
 
-            } catch (err) {
-                console.error("Error:", err);
-                statusContainer.className = "status failed";
-                statusContainer.textContent = "Payment failed: " + err.message;
+                if (data.paymob_payment_token) {
+                    const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${PAYMOB_IFRAME_ID}?payment_token=${data.paymob_payment_token}`;
+                    iframeWrap.innerHTML = `<iframe src="${iframeUrl}" title="PayMob Payment"></iframe>`;
+                    iframeWrap.hidden = false;
+                } else {
+                    statusEl.className = "status failed";
+                    statusEl.textContent = "No PayMob payment token returned from server.";
+                }
+
+            } catch (e) {
+                statusEl.className = "status failed";
+                statusEl.textContent = e.message || "Unexpected error occurred.";
             }
         }
-        document.getElementById("payBtn").addEventListener("click", createPayment);
 
+        document.getElementById("payBtn").addEventListener("click", createPayment);
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") document.getElementById("payBtn").click();
+        });
+
+        const logoutBtn = document.getElementById("logoutBtn");
+        logoutBtn.addEventListener("click", async () => {
+            logoutBtn.disabled = true;
+            logoutBtn.textContent = "Logging out...";
+
+            try {
+                await fetch(LOGOUT_URL, {
+                    method: "POST",
+                    credentials: "include"
+                });
+            } catch (err) {
+                console.warn("Logout failed:", err);
+            }
+
+            sessionStorage.removeItem("accessToken");
+            window.location.href = LOGIN_URL;
+        });
     </script>
+
 </body>
 
 </html>
