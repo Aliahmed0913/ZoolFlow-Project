@@ -1,7 +1,7 @@
 from django.urls import path,include
 from .views import LoginView,CookieTokenObtainPairView,\
-                CookieTokenRefreshView,CookieTokenDisableTokenView,UserProfileViewSet,\
-                VerificationCodeViewSet,UserRegistrationView,CustomTokenObtainPairView
+    CookieTokenRefreshView,CookieTokenDisableTokenView,UserProfileViewSet,\
+    VerificationCodeViewSet,UserRegistrationView,CustomTokenObtainPairView
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
 
