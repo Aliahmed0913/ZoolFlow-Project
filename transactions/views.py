@@ -1,5 +1,7 @@
 from django.views.generic import TemplateView 
 from django_filters.rest_framework import DjangoFilterBackend 
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.generics import ListCreateAPIView
@@ -14,6 +16,7 @@ from transactions.models import Transaction
 user = get_user_model()
 
 # Create your views here.
+@method_decorator(csrf_protect,name='post')
 class TransactionAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TransactionSerializer
@@ -42,7 +45,7 @@ class PayMobWebHookView(APIView):
             return Response({'Received':True},status=status.HTTP_200_OK)
         
         return Response({'Received':False},status=status.HTTP_400_BAD_REQUEST)
-    
+
 class TransactionView(TemplateView):
     template_name ='transactions/templates/pay.html'
     
