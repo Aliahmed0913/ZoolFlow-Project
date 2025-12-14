@@ -3,7 +3,6 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.password_validation import validate_password
-
 from stackpay.settings import CODE_LENGTH
 
 
@@ -28,11 +27,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_role_management(self,value):
         request = self.context.get('request')
         user = request.user
-        if value in ['ADMIN','STAFF'] :
-            if not user.is_authenticated:
-                raise serializers.ValidationError('Authentication required to create staff or admin!')
-            elif user.role_management != 'ADMIN':
-                raise serializers.ValidationError('Only admin can assign admin or staff!')
+        
+        if value in [User.Roles.ADMIN,User.Roles.STAFF]:
+            if not user or not user.is_authenticated:
+                raise serializers.ValidationError('Authentication required to create staff or admin users.')
+            elif user.role_management != User.Roles.ADMIN:
+                raise serializers.ValidationError('Only admins can assign admin or staff roles.')
         return value
     
     def create(self, validated_data):  
@@ -47,7 +47,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class EmailCodeVerificationSerializer(serializers.Serializer):
         email = serializers.EmailField()
-        code = serializers.CharField(required=False,max_length=CODE_LENGTH,min_length=CODE_LENGTH)
+        code = serializers.CharField(
+            max_length=CODE_LENGTH,
+            min_length=CODE_LENGTH)
+        
+        def validate_email(self, value):
+            try:
+                User.objects.get(email=value)
+            except User.DoesNotExist:
+                raise serializers.ValidationError('No user is associated with this email.')
+            return value
+        
+        def validate_code(self, value):
+            if not value.isdigit():
+                raise serializers.ValidationError('Verification code must contain only digits.')
+            return value
     
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -59,17 +73,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         request = self.context['request']
         user_role = request.user.role_management
-        if 'role_management' in validated_data and user_role != 'ADMIN':
+        if 'role_management' in validated_data and user_role != User.Roles.ADMIN:
             logger.warning(f'{request.user.username} can\'t upgrade himself to admin')
-            raise serializers.ValidationError({'detail':'User can\'t upgrade himself to admin'})
+            raise serializers.ValidationError({'detail':'only admins can assign admin or staff roles'})
         
-        if 'is_active' in validated_data and user_role != 'ADMIN':
+        if 'is_active' in validated_data and user_role != User.Roles.ADMIN:
             logger.warning(f'{user_role} can\'t activate himself')
-            raise serializers.ValidationError({'detail':'User can\'t activate himself'})
+            raise serializers.ValidationError({'detail':'only admin can activate users'})
         
         if 'password' in validated_data:
             logger.warning('This endpoint can\'t update passwords')
-            raise serializers.ValidationError({'detail':'Page can\'t handle password change.'})
+            raise serializers.ValidationError({'detail':'Use the change password endpoint to update passwords'})
         
         return super().update(instance, validated_data)
    
@@ -83,10 +97,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         new_password = attrs.get('new_password')
         
         if not check_password(old_password,user.password):
-            raise serializers.ValidationError({'old password':'Old password incorrect'})
+            raise serializers.ValidationError({'old password':'Old password is incorrect'})
         
         if check_password(new_password,user.password):
-            raise serializers.ValidationError({'new_password':'New password is identical to old password'})
+            raise serializers.ValidationError({'new password':'New password must differ from old password'})
         
         validate_password(new_password)
         return attrs
