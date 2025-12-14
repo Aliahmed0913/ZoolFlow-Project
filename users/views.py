@@ -6,37 +6,34 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-
 from rest_framework.request import Request
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from django.views.generic import TemplateView
-
+from django.conf import settings
 from users.models import User
 from users.serializers import UserRegistrationSerializer,UserProfileSerializer,EmailCodeVerificationSerializer,ChangePasswordSerializer
-from users.services.verifying_code import VerificationCodeSerivce
-from users.services.user_utils import get_token_from_cookie 
+from users.services.verifying_code import VerificationCodeService
+from users.services.user_utils import get_token_from_cookie, set_refresh_token_cookie
 from users.permissions import IsAdminOrOwner,IsAdmin, IsAdminOrStaff
-from stackpay.settings import THROTTLES_SCOPE
+from rest_framework.throttling import ScopedRateThrottle
 
 # Create your views here.
+
+class LoginThrottle(ScopedRateThrottle):
+    scope = 'login'
+
 class LoginView(TemplateView):
     template_name='users/templates/login.html'
     
 @method_decorator(csrf_protect,name='post')
 class CookieTokenObtainPairView(TokenObtainPairView):
+    throttle_classes = [LoginThrottle]
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
-        if response:
-            response.set_cookie('refresh_token',
-                                response.data['refresh'],
-                                samesite='Strict'
-                                ,secure=False
-                                ,httponly=True,
-                                max_age=60*60*24 # lifetime about one day
-                                )
-            return Response({'access':response.data['access']},status=status.HTTP_200_OK)
-        return Response({'detail':'invalid credentials'},status=status.HTTP_401_UNAUTHORIZED)
+        if getattr(response,'status_code',None) == 200 and 'refresh' in response.data:
+            response = set_refresh_token_cookie(response)
+        return response
     
 @method_decorator(csrf_protect,name='post')
 class CookieTokenRefreshView(APIView):
@@ -59,11 +56,11 @@ class CookieTokenDisableTokenView(APIView):
 
 class UserRegistrationView(APIView):
     throttle_scope = 'sign_up'
+    
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data,context = {'request':request})
         serializer.is_valid(raise_exception=True)
         serializer.save() 
-         
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class UserProfileViewSet(ModelViewSet):
@@ -80,7 +77,8 @@ class UserProfileViewSet(ModelViewSet):
         return [IsAdminOrOwner()]
     
     def get_throttles(self):
-        self.throttle_scope = THROTTLES_SCOPE.get(self.action,'profile')
+        scope = getattr(settings,'THROTTLES_SCOPE',{})
+        self.throttle_scope = scope.get(self.action,'profile')
         return super().get_throttles()
     
     @action(detail=False, methods=['GET','PATCH'],url_path='mine',url_name='mine')
@@ -107,36 +105,28 @@ class UserProfileViewSet(ModelViewSet):
 
 class VerificationCodeViewSet(GenericViewSet):
     serializer_class = EmailCodeVerificationSerializer
-    verification_throttle_scope = {
-        'verifying_user_code':'verify_code',
-        'resend_user_code':'resend_code',
-    }
     
     def get_throttles(self):
-        self.throttle_scope = THROTTLES_SCOPE.get(self.action, 'default')
+        self.throttle_scope = getattr(settings,'THROTTLES_SCOPE',{}).get(self.action, 'verify_code')
         return super().get_throttles()
     
     @action(detail=False, methods=['POST'], url_path='validate',url_name='validate')
     def verifying_user_code(self,request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        recived_code = serializer.validated_data.get('code')
+        received_code = serializer.validated_data.get('code')
         email = serializer.validated_data['email'] 
         
-        if not recived_code:
-            return Response({'detail':'The code field is required.'},status=status.HTTP_400_BAD_REQUEST)
-        
-        service = VerificationCodeSerivce(email)
-        result,user = service.validate_code(recived_code) 
+        service = VerificationCodeService(email)
+        result,user = service.validate_code(received_code) 
               
         if result == service.VerifyCodeStatus.VALID:
             refresh_token = RefreshToken.for_user(user=user)
-            return Response({
-            'refresh':str(refresh_token),
-            'access':str(refresh_token.access_token),
-            },status=status.HTTP_200_OK)
+            response = Response({'refresh':str(refresh_token),'access':str(refresh_token.access_token),},status=status.HTTP_200_OK)
+            response = set_refresh_token_cookie(response)
+            return response
        
-        return Response({'detail':'The code has expired!'},status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail':'Invalid or expired verification code.'},status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=False, methods=['POST'], url_path='resend',url_name='resend-code')
     def resend_user_code(self,request):
@@ -144,17 +134,12 @@ class VerificationCodeViewSet(GenericViewSet):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         
-        service = VerificationCodeSerivce(user_email=email)
+        service = VerificationCodeService(email)
         code = service.recreate_code_on_demand()
         
         if code == service.VerifyCodeStatus.CREATED:
-            return Response({'detail':'A new verification code is sent'},status=status.HTTP_200_OK)
-        elif code == service.VerifyCodeStatus.VALID:
-            return Response({'detail':'The code is currently valid.'},status=status.HTTP_400_BAD_REQUEST)
-        return Response({'detail':'Can\'t send code, user is verified.'},status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail':'Verification code sent to email'},status=status.HTTP_200_OK)
+        return Response({'detail':'Verification code already sent or user verified.'},status=status.HTTP_400_BAD_REQUEST)
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    '''Customize token-generator to limit request per minute to 10'''
-    throttle_scope = 'login'
     
 
