@@ -29,6 +29,9 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
+CSRF_TRUSTED_ORIGINS = [
+    "https://prebromidic-ricardo-plangent.ngrok-free.dev",
+]
 # ALLOWED_HOSTS=['localhost','127.0.0.1','prebromidic-ricardo-plangent.ngrok-free.dev',]
 
 
@@ -200,9 +203,15 @@ THROTTLES_SCOPE = {
         'change_password':'new_password',
     }
 
+#session settings
+LIFETIME_SESSION = 60*60*24
+SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Strict'
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(seconds=LIFETIME_SESSION),
     'UPDATE_LAST_LOGIN': True,
 }
 
