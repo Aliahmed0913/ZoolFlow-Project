@@ -2,13 +2,14 @@ from django.db import models
 from customers.models import Customer
 from django.core.validators import MinValueValidator
 from decimal import Decimal
+import uuid
 # Create your models here.
 
 class Transaction(models.Model):
     class SupportedPaymentProviders(models.TextChoices):
         PAYMOB = 'PayMob','PayMob'
 
-    class TransactionStatus(models.TextChoices):
+    class TransactionState(models.TextChoices):
         INITIATED = 'initiated','Initiated'
         PENDING_PROVIDER = 'pending_provider','Pending Provider'
         SUCCEEDED = 'succeeded','Succeeded'
@@ -18,8 +19,8 @@ class Transaction(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_transaction')
     amount = models.DecimalField(max_digits=12,decimal_places=2,validators=[MinValueValidator(Decimal('0.01'))])
     payment_provider = models.CharField(max_length=50,choices=SupportedPaymentProviders.choices,default=SupportedPaymentProviders.PAYMOB)
-    state = models.CharField(max_length=20,editable=False,choices=TransactionStatus.choices,default=TransactionStatus.INITIATED)
-    merchant_order_id = models.CharField(max_length=200,unique=True)
+    state = models.CharField(max_length=20,editable=False,choices=TransactionState.choices,default=TransactionState.INITIATED)
+    merchant_order_id = models.CharField(max_length=36,unique=True,editable=False,default=lambda:str(uuid.uuid4()))
     transaction_id = models.CharField(max_length=64,db_index=True,null=True,blank=True)
     order_id = models.CharField(max_length=200,null=True,blank=True)
     payment_token = models.TextField(null=True, blank=True)
