@@ -11,9 +11,9 @@ def create_transaction(customer,validated_data):
     '''
     provider = PayMob(customer)
     amount_cents = int(validated_data.get('amount')*100)
-    logger.info(f"Creating transaction for customer {customer.id}, amount {validated_data['amount']}")
-    
     merchant_id = validated_data['merchant_order_id']
+    
+    logger.info(f"Creating transaction for customer {customer.id}, amount {validated_data['amount']}")
     with db_transaction.atomic():
         transaction = Transaction.objects.create(
             customer=customer,
