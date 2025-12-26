@@ -11,7 +11,7 @@ class Transaction(models.Model):
 
     class TransactionState(models.TextChoices):
         INITIATED = 'initiated','Initiated'
-        PENDING_PROVIDER = 'pending_provider','Pending Provider'
+        PENDING = 'pending','Pending'
         SUCCEEDED = 'succeeded','Succeeded'
         FAILED = 'failed','Failed'
         REFUNDED = 'refunded','Refunded'    
