@@ -36,8 +36,10 @@ def interact_with_provider(merchant_id,amount_cents,provider,transaction):
         # Update transaction with provider fields
         set_provider_fields(transaction,merchant_id,provider_id,payment_token)
     except ProviderServiceError as e:
-        transaction.state = Transaction.TransactionState.FAILED
-        transaction.save(update_fields=['state'])
+        with db_transaction.atomic():
+            tx = Transaction.objects.select_for_update().get(id=transaction.id)
+            tx.state = Transaction.TransactionState.FAILED
+            tx.save(update_fields=['state'])
         logger.warning(f"Transaction {merchant_id} failed during provider interaction: {e.message}")
         raise
     
@@ -45,9 +47,11 @@ def set_provider_fields(transaction,merchant_id,provider_id,payment_token):
     '''
     Set provider related fields in transaction instance
     '''
-    transaction.merchant_order_id = merchant_id
-    transaction.order_id = provider_id
-    transaction.payment_token = payment_token
-    transaction.state = Transaction.TransactionState.PENDING
-    transaction.save(update_fields=['merchant_order_id','order_id','payment_token','state'])
+    with db_transaction.atomic():
+        tx = Transaction.objects.select_for_update().get(id=transaction.id)
+        tx.merchant_order_id = merchant_id
+        tx.order_id = provider_id
+        tx.payment_token = payment_token
+        tx.state = Transaction.TransactionState.PENDING
+        tx.save(update_fields=['merchant_order_id','order_id','payment_token','state'])
     logger.info(f'Transaction {merchant_id} updated with provider fields.')
