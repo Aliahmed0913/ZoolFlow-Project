@@ -219,7 +219,7 @@
     </main>
 
     <script>
-        const API_URL = "{% url 'transactions:transaction-create' %}";
+        const API_URL = "{% url 'transactions:transaction-list' %}";
         const REFRESH_URL = "{% url 'users:refresh-token' %}"; // endpoint to refresh access token
         const PAYMOB_IFRAME_ID = "962850";
         const LOGOUT_URL = "{% url 'users:refresh-disabled' %}";
@@ -303,8 +303,8 @@
                 return;
             }
 
-            statusEl.className = "status pending";
-            statusEl.textContent = "Creating transaction...";
+            statusEl.className = "status initiating";
+            statusEl.textContent = "Initializing transaction...";
 
             try {
                 const res = await fetchWithToken(API_URL, {
@@ -322,23 +322,22 @@
                         detail = err.detail || JSON.stringify(err);
                     } catch { }
                     statusEl.className = "status failed";
-                    statusEl.textContent = 'Transaction failed';
+                    statusEl.textContent = 'Transaction failed: ' + detail;
                     return;
                 }
 
                 const data = await res.json();
 
-                if (data.status) {
-                    const s = String(data.status).toLowerCase();
-                    statusEl.className = `status ${["success", "failed", "pending"].includes(s) ? s : "pending"}`;
-                    statusEl.textContent = `Transaction status: ${data.status}`;
+                if (data.state_display) {
+                    const s = String(data.state_display).toLowerCase();
+                    statusEl.textContent = `Transaction state: ${data.state_display}`;
                 } else {
-                    statusEl.className = "status pending";
+                    statusEl.className = "status initiating";
                     statusEl.textContent = "Initializing PayMob payment...";
                 }
 
-                if (data.paymob_payment_token) {
-                    const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${PAYMOB_IFRAME_ID}?payment_token=${data.paymob_payment_token}`;
+                if (data.payment_token) {
+                    const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${PAYMOB_IFRAME_ID}?payment_token=${data.payment_token}`;
                     iframeWrap.innerHTML = `<iframe src="${iframeUrl}" title="PayMob Payment"></iframe>`;
                     iframeWrap.hidden = false;
                 } else {
