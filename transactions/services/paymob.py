@@ -33,7 +33,7 @@ class PayMob():
             logger.error(f'There is no main address specified for {self.user.username}.')
             raise ProviderServiceError(message='There is no main address specified',details='Address')
         
-        currency = getattr(settings,'SUPPORTED_COUNTRIES',{}).get(address.country.code)
+        currency = getattr(settings,'SUPPORTED_COUNTRIES',{}).get(address.country.name)
         if not currency:
             logger.error(f'Currency for that country is unsupported.')
             raise ProviderServiceError('Country unsupported',details='Currency')
