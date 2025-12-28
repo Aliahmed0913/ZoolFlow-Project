@@ -14,8 +14,9 @@ class ProviderServiceError(Exception):
         self.details = details
     
 class PayMob():
-    def __init__(self,customer,address=None,currency=None):
+    def __init__(self,customer,merchant_id,address=None,currency=None):
         self.customer = customer
+        self.merchant_id = merchant_id
         self.user = self.customer.user
         self.currency = currency
         self.address = address
@@ -56,14 +57,14 @@ class PayMob():
             result = data.get(requested_field)
             
             if not result:
-                logger.error(f'There is no {field_name} returned when requesting it from provider.')
+                logger.error(f'No {field_name} returned from provider for transaction {self.merchant_id}.')
                 raise ProviderServiceError(f'The API did not return the {field_name}.',f'{field_name.capitalize()}')
             
-            logger.info(f'provider {field_name} has successfully returned.')
+            logger.info(f'{field_name} for transaction {self.merchant_id} has been successfully returned.')
             return result
         
         except requests.RequestException as pe:
-            logger.error(str(pe))
+            logger.error(f'transaction {self.merchant_id} failed with error: {str(pe)}')
             raise ProviderServiceError('provider API fail',details=str(pe))
     
 
@@ -85,7 +86,7 @@ class PayMob():
 
         return token
     
-    def _build_order_payload(self,merchant_id,amount_cents):
+    def _build_order_payload(self,amount_cents):
         '''
         Set payload for creating an order in provider
         '''
@@ -93,7 +94,7 @@ class PayMob():
         payload = {
             "auth_token": token,
             "delivery_needed": "false",
-            "merchant_order_id": merchant_id,
+            "merchant_order_id": self.merchant_id,
             "amount_cents": amount_cents,  
             "currency": self.currency,
             "items": []
@@ -130,7 +131,7 @@ class PayMob():
         
         return payload
     
-    def create_order(self,merchant_id,amount_cents):
+    def create_order(self,amount_cents):
         '''
         Return order ID from provider.
         
@@ -138,7 +139,7 @@ class PayMob():
             ProviderServiceError if the API fails or returns no order ID. 
         '''
            
-        payload = self._build_order_payload(merchant_id,amount_cents)
+        payload = self._build_order_payload(amount_cents)
         provider_id = self._request_field(payload=payload,endpoint=getattr(settings,'ORDER_PAYMOB_URL'),requested_field='id',field_name='order ID')
         return provider_id    
    
