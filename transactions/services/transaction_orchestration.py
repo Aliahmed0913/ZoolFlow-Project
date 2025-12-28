@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 def create_transaction(customer,validated_data):
     '''
     Create and return Transaction with provider PayMob
-    
     '''
     logger.info(f"Creating transaction for customer {customer.id}, amount {validated_data['amount']}")
     with db_transaction.atomic():
