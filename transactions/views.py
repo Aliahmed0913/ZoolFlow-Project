@@ -61,23 +61,22 @@ class PayMobWebHookView(APIView):
             data = request.data.get('obj') 
             transaction_id = data.get('id')
             merchant_id = data.get('order',{}).get('merchant_order_id')
+            # Check incoming HMAC signature with computed one internally 
             w_service = WebhookService(merchant_id,transaction_id)
-        except WebhookServiceError as e:
-            return Response({'Webhook':'Miss field/fields or unfound transaction'},status=status.HTTP_400_BAD_REQUEST)
-    
-        is_verified = w_service.verify_hmac(received_hmac,data)
-        if is_verified:
+            w_service.verify_hmac(received_hmac,data)
+            
+            # Extract webhook data and handle state transition
             success = data.get('success')
             pending = data.get('pending')
             is_refunded = data.get('is_refunded')
-            
             data_status = data.get('data', {})
             message = data_status.get('message', '')
             response_code = data_status.get('acq_response_code','')   
             w_service.handle_webhook(success,pending,is_refunded,message,response_code)
             return Response({'Webhook':'HMAC successfully verified.'},status=status.HTTP_200_OK)
         
-        return Response({'Webhook':'HMAC verification failed.'},status=status.HTTP_400_BAD_REQUEST)
+        except WebhookServiceError as e:
+            return Response({"non_field_errors": [f'{e.details}:{e.message}']}, status=status.HTTP_400_BAD_REQUEST)
 
 class TransactionView(TemplateView):
     template_name ='transactions/templates/pay.html'
