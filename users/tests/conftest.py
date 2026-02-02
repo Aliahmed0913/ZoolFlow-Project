@@ -1,10 +1,8 @@
 import pytest
+from datetime import timedelta
+from django.utils import timezone
 from django.conf import settings
-from rest_framework.test import APIClient
-from users.models import User, VerificationCode
-from django.db.models.signals import post_save
-from notifications.signals import handle_verify_code_mail as notif_signals
-from customers.signals import handle_activation_user as user_signal
+from ..models import User, VerificationCode
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -62,10 +60,6 @@ def create_user(db):
         )
 
     return make_user
-
-
-from django.utils import timezone
-from datetime import timedelta
 
 
 @pytest.fixture
