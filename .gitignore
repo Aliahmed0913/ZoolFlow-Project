@@ -8,3 +8,6 @@ __pycache__/
 #celery schedule
 celerybeat-schedule
 celerybeat-schedule-*
+
+.vscode/*
+#IDE files
