@@ -220,10 +220,10 @@
 
     <script>
         const API_URL = "{% url 'transactions:transaction-list' %}";
-        const REFRESH_URL = "{% url 'users:refresh-token' %}"; // endpoint to refresh access token
+        const REFRESH_URL = "{% url 'users:refresh_token' %}"; // endpoint to refresh access token
         const PAYMOB_IFRAME_ID = "962850";
-        const LOGOUT_URL = "{% url 'users:refresh-disabled' %}";
-        const LOGIN_URL = "{% url 'users:login-view' %}";
+        const LOGOUT_URL = "{% url 'users:refresh_disabled' %}";
+        const LOGIN_URL = "{% url 'users:login_view' %}";
 
         function normalizeAmount(raw) {
             const n = Number.parseFloat(String(raw).trim());
@@ -264,7 +264,7 @@
                     statusEl.className = "status failed";
                     statusEl.textContent = "Session expired. Redirecting to login...";
                     setTimeout(() => {
-                        window.location.href = "{% url 'users:login-view'%}";
+                        window.location.href = "{% url 'users:login_view'%}";
                     }, 2000);
                     return null; // stop further processing
                 }
@@ -298,7 +298,7 @@
                 statusEl.className = "status failed";
                 statusEl.textContent = "Not authenticated. Redirecting to login...";
                 setTimeout(() => {
-                    window.location.href = "{% url 'users:login-view' %}";
+                    window.location.href = "{% url 'users:login_view' %}";
                 }, 2000);
                 return;
             }
