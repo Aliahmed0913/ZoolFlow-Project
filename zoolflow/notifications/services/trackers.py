@@ -1,7 +1,7 @@
 import logging
 from django.db import transaction
 from ..models import EmailEvent
-from transactions.services.webhook import WebhookServiceError
+from zoolflow.transactions.services.webhook import WebhookServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class UpdateEmailEventTracker:
                 email_event.status = EmailEvent.MessageStatus.FAILED
             email_event.event_id = event_id
             email_event.save(update_fields=["status", "event_id"])
+
             logger.info(
                 f"Mailgun HMAC for transaction ({email_event.idempotent_key}) verified successfully."
             )

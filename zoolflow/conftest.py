@@ -2,7 +2,7 @@ import pytest
 from django.db.models.signals import post_save
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
-from users.signals import initiate_verification_code
+from .users.signals import initiate_verification_code
 
 User = get_user_model()
 

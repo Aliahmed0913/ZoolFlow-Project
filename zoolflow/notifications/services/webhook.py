@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from django.conf import settings
-from transactions.services.webhook import WebhookService
+from zoolflow.transactions.services.webhook import WebhookService
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ from django.template.loader import render_to_string
 from .providers import MailGunProvider
 from ..models import EmailEvent
 from ..services.trackers import UpdateEmailEventTracker
-from ..models import Transaction
+from zoolflow.transactions.models import Transaction
 from zoolflow.users.models import VerificationCode
 
 logger = logging.getLogger(__name__)

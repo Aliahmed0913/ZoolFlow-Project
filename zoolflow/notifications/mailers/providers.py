@@ -3,7 +3,7 @@ import logging
 import requests
 from django.conf import settings
 from requests.exceptions import HTTPError
-from transactions.services.http_client import get_session_with_retries
+from zoolflow.transactions.services.http_client import get_session_with_retries
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +18,19 @@ class MailGunProviderError(HTTPError):
 
 class MailGunProvider:
     def __init__(self):
-        self.api_key = getattr(settings, "MAILGUN_API_KEY", None)
-        self.base_url = getattr(settings, "MAILGUN_BASE_URL", None)
-        self.mailgun_base_url = getattr(settings, "MAILGUN_BASE_URL", None)
+        self.api_key = getattr(settings, "MAILGUN_API_KEY")
+        self.base_url = getattr(settings, "MAILGUN_BASE_URL")
+        self.mailgun_domain = getattr(settings, "EMAIL_DOMAIN")
         self.session = get_session_with_retries()
 
     def send_email(self, recipient, email_subject, email_body):
         """
         Send email using MailGun API
         """
-        endpoint = f"{self.base_url}/v3/{self.mailgun_base_url}/messages"
+        endpoint = f"{self.base_url}/v3/{self.mailgun_domain}/messages"
         auth = ("api", self.api_key)
         data = {
-            "from": f"Zool_Flow <zoolflow@{self.mailgun_base_url}>",
-            # Ali Ahmed Osman <ali.ahmed.osman@outlook.com>
+            "from": f"Zool_Flow <zoolflow@{self.mailgun_domain}>",
             "to": recipient,
             "subject": email_subject,
             "text": email_body,

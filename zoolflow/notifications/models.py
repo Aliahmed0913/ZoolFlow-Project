@@ -1,5 +1,6 @@
 from django.db import models
 
+
 # Create your models here.
 class EmailEvent(models.Model):
     class MessageStatus(models.TextChoices):

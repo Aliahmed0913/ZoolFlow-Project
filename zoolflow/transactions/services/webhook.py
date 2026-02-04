@@ -64,18 +64,14 @@ class WebhookService:
         Update the transaction state
         Assign transaction_id based on returned webhook
         """
-        from notifications.tasks import transaction_state_email_task
+        from zoolflow.notifications.tasks import transaction_state_email_task
 
         with db_transaction.atomic():
             tx = retrieve_transaction_for_update(id=self.transaction.id)
             tx.state = new_state
             tx.transaction_id = self.transaction_id
             tx.save(update_fields=["state", "transaction_id"])
-            logger.info(
-                f"""
-                Transaction {tx.transaction_id} updated to {tx.state}.
-                """
-            )
+            logger.info(f"Transaction {tx.transaction_id} updated to {tx.state}.")
             db_transaction.on_commit(
                 lambda: transaction_state_email_task(self.transaction_id)
             )
