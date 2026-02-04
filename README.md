@@ -1,4 +1,4 @@
-#  StackPay – Basic Payment Integration Project
+#  ZoolFlow – Basic Payment Integration Project
 
 A Django REST Framework project that demonstrates a simple payment integration workflow with **PayMob**, user registration, notifications, and Celery background tasks.
 
