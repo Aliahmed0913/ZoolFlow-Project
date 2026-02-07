@@ -1,6 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
-from ..services.paymob import PayMob
+from ..services.paymob import PayMobClient
 from customers.models import Customer, Address
 
 User = get_user_model()
@@ -32,7 +32,7 @@ def customer_factory(db):
 @pytest.fixture()
 def paymob_factory():
     def create_paymob(customer):
-        return PayMob(
+        return PayMobClient(
             customer=customer,
             currency="EGP",
             address="test address",

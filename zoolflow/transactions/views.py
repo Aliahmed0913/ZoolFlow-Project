@@ -80,6 +80,7 @@ class PayMobWebHookView(APIView):
                 )
             # check idempotency based on transaction id
             transaction_id = data.get("id")
+            # None indicate new webhook return after process a transaction
             transaction = bring_transaction(transaction_id=transaction_id)
 
             if transaction:
@@ -92,14 +93,16 @@ class PayMobWebHookView(APIView):
                         {"Webhook": "Transaction already processed."},
                         status=status.HTTP_200_OK,
                     )
-
+            merchant_id = data.get("order", {}).get("merchant_order_id")
             # Check incoming HMAC signature with computed one internally
-            w_service = WebhookService(data, transaction_id)
+            w_service = WebhookService(data, merchant_id, transaction_id)
             received_hmac = request.GET.get("hmac")
             w_service.verify_paymob_hmac(received_hmac)
 
-            # Process webhook data to update transaction state
-            w_service.handle_webhook()
+            # Update transaction and mail this updates
+            TransactionOrchestrationService.update_and_mail_state(
+                merchant_id, transaction_id
+            )
 
             return Response(
                 {"Webhook": "HMAC successfully verified."},

@@ -1,9 +1,10 @@
 import logging
 import requests
+import json
 from django.core.cache import cache
 from django.conf import settings
 from .http_client import get_session_with_retries
-from zoolflow.customers.services.helpers import country_and_currency
+from .payloads import order_payload, payment_token_payload
 
 logger = logging.getLogger(__name__)
 
@@ -16,26 +17,11 @@ class ProviderServiceError(Exception):
         self.details = details
 
 
-class PayMob:
+class PayMobClient:
     def __init__(self, *args, **kwargs):
-        self.customer = kwargs.get("customer")
-        self.merchant_id = kwargs.get("merchant_id")
-        self.user = self.customer.user
-        self.currency = kwargs.get("currency", None)
-        self.address = kwargs.get("address", None)
+        self.customer = kwargs.get("customer", None)
+        self.amount_cents = kwargs.get("amount_cents", None)
         self.session = get_session_with_retries()
-
-        if not (self.currency and self.address):
-            try:
-                self.currency, self.address = country_and_currency(
-                    customer_id=self.customer.id,
-                    username=self.user.username,
-                )
-            except Exception as e:
-                raise ProviderServiceError(
-                    message=str(e.message),
-                    details=e.details,
-                )
 
     def _request_field(self, payload, endpoint, requested_field, field_name):
         """
@@ -55,21 +41,17 @@ class PayMob:
             result = data.get(requested_field)
 
             if not result:
-                logger.error(
-                    f"No {field_name} returned from provider for transaction {self.merchant_id}."
-                )
+                logger.error(f"No {field_name} returned from provider.")
                 raise ProviderServiceError(
                     f"The API did not return the {field_name}.",
                     f"{field_name.capitalize()}",
                 )
 
-            logger.info(
-                f"{field_name} for transaction {self.merchant_id} has been successfully returned."
-            )
+            logger.info(f"{field_name} has been successfully returned.")
             return result
 
         except requests.RequestException as pe:
-            logger.error(f"transaction {self.merchant_id} failed with error: {str(pe)}")
+            logger.error(f"Provider failed with error: {str(pe)}")
             raise ProviderServiceError("provider API fail", details=str(pe))
 
     def get_auth_token(self):
@@ -94,74 +76,49 @@ class PayMob:
 
         return token
 
-    def _build_order_payload(self, amount_cents):
-        """
-        Set payload for creating an order in provider
-        """
-        token = self.get_auth_token()
-        payload = {
-            "auth_token": token,
-            "delivery_needed": "false",
-            "merchant_order_id": self.merchant_id,
-            "amount_cents": amount_cents,
-            "currency": self.currency,
-            "items": [],
-        }
-        return payload
-
-    def _build_payment_payload(self, amount_cents, provider_id):
-        """
-        Set payload for requesting the payment key token
-        """
-        token = self.get_auth_token()
-        payload = {
-            "auth_token": token,
-            "amount_cents": amount_cents,
-            "currency": self.currency,
-            "order_id": provider_id,
-            "billing_data": {
-                "apartment": self.address.apartment_number or "NA",
-                "email": self.user.email or "Na",
-                "first_name": self.customer.first_name or "NA",
-                "last_name": self.customer.last_name or "un-known",
-                "street": self.address.line or "NA",
-                "building": self.address.building_number or "NA",
-                "phone_number": self.customer.phone_number or "NA",
-                "postal_code": self.address.postal_code or "NA",
-                "city": self.address.city or "NA",
-                "country": self.address.country.name or "NA",
-                "state": self.address.state or "NA",
-                "floor": "NA",
-                "shipping_method": "PKG",
-            },
-            "integration_id": getattr(settings, "PAYMOB_PAYMENT_KEY"),
-        }
-
-        return payload
-
-    def create_order(self, amount_cents):
+    def create_order(self, merchant_id):
         """
         Return order ID from provider.
 
         Raises:
             ProviderServiceError if the API fails or returns no order ID.
         """
+        try:
+            token = self.get_auth_token()
+            payload = order_payload(
+                self.amount_cents,
+                token,
+                merchant_id,
+                self.customer,
+            )
+        except Exception as e:
+            logger.error("failed on configure order payload")
+            raise ProviderServiceError("Failed to handle order payload", str(e))
 
-        payload = self._build_order_payload(amount_cents)
-        provider_id = self._request_field(
+        order_id = self._request_field(
             payload=payload,
             endpoint=getattr(settings, "ORDER_PAYMOB_URL"),
             requested_field="id",
             field_name="order ID",
         )
-        return provider_id
+        return order_id
 
-    def payment_key_token(self, provider_id, amount_cents):
+    def payment_key_token(self, order_id):
         """
         Return the payment token specialized to who pay. Used to return an iframe
         """
+        try:
+            token = self.get_auth_token()
+            payload = payment_token_payload(
+                self.amount_cents,
+                token,
+                order_id,
+                self.customer,
+            )
+        except Exception as e:
+            logger.error("failed on configure payment token payload")
+            raise ProviderServiceError("Failed to handle payment token payload", str(e))
 
-        payload = self._build_payment_payload(amount_cents, provider_id)
         payment_token = self._request_field(
             payload=payload,
             endpoint=getattr(settings, "PAYMOB_PAYMENT_URL_KEY"),
@@ -170,3 +127,25 @@ class PayMob:
         )
 
         return payment_token
+
+    def get_transaction_flags(self, transaction_id):
+        """
+        Return transaction status(flags) from paymob.
+
+        By calling 'By Transacion ID' endpoint that take transaction id and Auth token
+        """
+        token = self.get_auth_token()  # handle this with redis
+        header = {
+            "Authorization": f"Bearer {token}",
+        }
+        url = f"https://accept.paymob.com/api/acceptance/transactions/{transaction_id}"
+        try:
+            response = self.session.get(url=url, headers=header)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error("Provider fail to return transaction current state")
+            raise ProviderServiceError(
+                "Provider fail to return transaction current state", str(e)
+            )
+        data = json.loads(response.content)
+        return data

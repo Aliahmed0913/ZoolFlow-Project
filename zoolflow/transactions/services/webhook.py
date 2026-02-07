@@ -2,9 +2,7 @@ import logging
 import hashlib
 import hmac
 from django.conf import settings
-from django.db import transaction as db_transaction
-from .helpers import bring_transaction, retrieve_transaction_for_update
-from ..models import Transaction as TXN
+from .helpers import bring_transaction
 
 logger = logging.getLogger(__name__)
 
@@ -18,63 +16,10 @@ class WebhookServiceError(Exception):
 
 
 class WebhookService:
-    def __init__(self, data, transaction_id):
+    def __init__(self, data, merchant_id, transaction_id):
         self.data = data
-        merchant_id = data.get("order", {}).get("merchant_order_id")
         self.transaction = bring_transaction(merchant_order_id=merchant_id)
         self.transaction_id = transaction_id
-
-    def handle_webhook(self):
-        """
-        Handle transaction state transition based on webhook received data
-        """
-        # Extract webhook data that define transaction current situation
-        success = self.data.get("success")
-        pending = self.data.get("pending")
-        is_refunded = self.data.get("is_refunded")
-        data_status = self.data.get("data", {})
-        message = data_status.get("message", "")
-        response_code = data_status.get("acq_response_code", "")
-
-        # Check various scenarios to update transaction state
-        # Additional flags used to identify pending state accurately
-        is_pending = (
-            message
-            in [
-                "AUTHENTICATION_UNAVAILABLE",
-                "AUTHENTICATION_PENDING",
-            ]
-            and response_code == "PROCEED"
-        )
-        if is_refunded:
-            self._webhook_transition(TXN.TransactionState.REFUNDED)
-            return
-        elif success:
-            self._webhook_transition(TXN.TransactionState.SUCCEEDED)
-            return
-        elif pending or is_pending:
-            self._webhook_transition(TXN.TransactionState.PENDING)
-            return
-        else:
-            self._webhook_transition(TXN.TransactionState.FAILED)
-            return
-
-    def _webhook_transition(self, new_state):
-        """
-        Update the transaction state
-        Assign transaction_id based on returned webhook
-        """
-        from zoolflow.notifications.tasks import transaction_state_email_task
-
-        with db_transaction.atomic():
-            tx = retrieve_transaction_for_update(id=self.transaction.id)
-            tx.state = new_state
-            tx.transaction_id = self.transaction_id
-            tx.save(update_fields=["state", "transaction_id"])
-            logger.info(f"Transaction {tx.transaction_id} updated to {tx.state}.")
-            db_transaction.on_commit(
-                lambda: transaction_state_email_task(self.transaction_id)
-            )
 
     def verify_paymob_hmac(self, received_hmac):
         concatenate_fields = str.join(

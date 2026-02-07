@@ -21,6 +21,9 @@ class Transaction(models.Model):
         SUCCEEDED = "succeeded", "Succeeded"
         FAILED = "failed", "Failed"
         REFUNDED = "refunded", "Refunded"
+        ERROR = "error", "Error"
+        VOIDED = "voided", "Voided"
+        AUTHORIZED = "authorized", "Authorized"
 
     customer = models.ForeignKey(
         Customer, on_delete=models.CASCADE, related_name="customer_transaction"
