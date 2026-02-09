@@ -164,7 +164,7 @@
 
         <!-- Username/email -->
         <div class="form-group">
-            <label for="username">Username</label>
+            <label for="username">Email</label>
             <div class="input-wrap">
                 <input type="text" id="username" placeholder="Enter you username" autocomplete="username" />
             </div>
@@ -200,11 +200,11 @@
 
 
         document.getElementById("loginBtn").addEventListener("click", async () => {
-            const username = document.getElementById("username").value.trim();
+            const email = document.getElementById("username").value.trim();
             const password = passwordInput.value.trim();
             const errorMsg = document.getElementById("errorMsg");
 
-            if (!username || !password) {
+            if (!email || !password) {
                 errorMsg.textContent = "Please enter both username and password.";
                 return;
             }
@@ -219,7 +219,7 @@
                         "X-CSRFToken": csrftoken   // attach CSRF token
                     },
                     credentials: "include", // Important: allows HttpOnly cookie to be set
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ email, password })
                 });
 
                 if (!res.ok) {

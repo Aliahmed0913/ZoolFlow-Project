@@ -4,10 +4,15 @@ from django.contrib.auth.hashers import check_password
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from config.settings import CODE_LENGTH
-
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+class EmailOrUsernameBackendSerializer(TokenObtainPairSerializer):
+    # make simpleJWT accept email as input
+    username_field = "email"
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

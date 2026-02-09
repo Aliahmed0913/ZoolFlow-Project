@@ -14,10 +14,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.request import Request
 from rest_framework.throttling import ScopedRateThrottle
 
-from .models import User
 from . import serializers
-from .services.verifying_code import VerificationCodeService
-from .services.user_utils import get_token_from_cookie, set_refresh_token_cookie
+from .models import User
+from .services.verifying_code import (
+    VerificationCodeService,
+    VerificationCodeServiceError,
+    VerifyCodeStatus,
+)
+from .services.helpers import get_token_from_cookie, set_refresh_token_cookie
 from .permissions import IsAdminOrOwner, IsAdmin, IsAdminOrStaff
 
 # Create your views here.
@@ -31,9 +35,10 @@ class LoginView(TemplateView):
     template_name = "zoolflow/users/templates/login.html"
 
 
-@method_decorator(csrf_protect, name="post")
+# @method_decorator(csrf_protect, name="post")
 class CookieTokenObtainPairView(TokenObtainPairView):
     throttle_classes = [LoginThrottle]
+    serializer_class = serializers.EmailOrUsernameBackendSerializer
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
@@ -149,24 +154,25 @@ class VerificationCodeViewSet(GenericViewSet):
         email = serializer.validated_data["email"]
 
         service = VerificationCodeService(email)
-        result, user = service.validate_code(received_code)
+        try:
+            result, user = service.validate_code(received_code)
 
-        if result == service.VerifyCodeStatus.VALID:
-            refresh_token = RefreshToken.for_user(user=user)
-            response = Response(
-                {
-                    "refresh": str(refresh_token),
-                    "access": str(refresh_token.access_token),
-                },
-                status=status.HTTP_200_OK,
+            if result == VerifyCodeStatus.VALID:
+                refresh_token = RefreshToken.for_user(user=user)
+                response = Response(
+                    {
+                        "refresh": str(refresh_token),
+                        "access": str(refresh_token.access_token),
+                    },
+                    status=status.HTTP_200_OK,
+                )
+                response = set_refresh_token_cookie(response)
+                return response
+        except VerificationCodeServiceError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-            response = set_refresh_token_cookie(response)
-            return response
-
-        return Response(
-            {"detail": "Invalid or expired verification code."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
 
     @action(detail=False, methods=["POST"], url_path="resend", url_name="resend-code")
     def resend_user_code(self, request):
@@ -177,7 +183,7 @@ class VerificationCodeViewSet(GenericViewSet):
         verify_code = VerificationCodeService(email)
         result = verify_code.recreate_code_on_demand()
 
-        if result == verify_code.VerifyCodeStatus.CREATED:
+        if result == VerifyCodeStatus.CREATED:
             return Response(
                 {"detail": "New verification code sent."},
                 status=status.HTTP_200_OK,
