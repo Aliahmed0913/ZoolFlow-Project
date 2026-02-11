@@ -42,6 +42,7 @@ class UpdateEmailEventTracker:
             email_event.event_id = event_id
             email_event.save(update_fields=["status", "event_id"])
 
+            key = email_event.idempotent_key
             logger.info(
-                f"Mailgun HMAC for transaction ({email_event.idempotent_key}) verified successfully."
+                f"Mailgun {event_type}-{email_event.purpose} for user with key ({key})."
             )
