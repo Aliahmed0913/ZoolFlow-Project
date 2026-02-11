@@ -15,6 +15,6 @@ def initiate_verification_code(sender, instance, created, **kwargs):
 
         def on_commit():
             service = VerificationCodeService(instance.email)
-            service.create_code()
+            service.create_verification_code()
 
         transaction.on_commit(on_commit)

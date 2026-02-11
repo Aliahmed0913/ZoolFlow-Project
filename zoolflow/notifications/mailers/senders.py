@@ -1,32 +1,38 @@
 import logging
 from django.db import transaction as db_transaction
 from django.template.loader import render_to_string
+from django.core.cache import cache
 from .providers import MailGunProvider
 from ..models import EmailEvent
 from ..services.trackers import UpdateEmailEventTracker
 from zoolflow.transactions.models import Transaction
-from zoolflow.users.models import VerificationCode
 
 logger = logging.getLogger(__name__)
 
 
-def mail_verify_code(user_code: VerificationCode):
+def mail_verify_code(user_email):
     """
     Create and configure EmailMessage instance then send the object
     """
+    # if the code doesn't exist stop email processing
+    verification_code = cache.get(user_email)
+    if not verification_code:
+        logger.warning("In verification-code emailing, No verification code")
+        return
+    # build mail body
     subject = "Verify your email"
-    send_to = user_code.user.email
-    verification_code = user_code.code
-    # email_from = DEFAULT_FROM_EMAIL
+    send_to = user_email
+
     email_body = render_to_string(
-        "notifications/templates/verification_code.html",
-        {"user": user_code.user, "code": verification_code},
+        "zoolflow/notifications/templates/verification_code.html",
+        {"user": user_email, "code": verification_code},
     )
+
     _send_idempotent_email(
         email_body,
         subject,
         send_to,
-        "Verification code",
+        "Verification-code",  # implement choices in model level
         verification_code,
     )
 
@@ -37,6 +43,7 @@ def mail_transaction_state(transaction_id):
     """
     # Define email arguments (recipient, subject, body)
     txn = Transaction.objects.get(transaction_id=transaction_id)
+
     state = txn.get_state_display()
     user_email = txn.customer.user.email
     username = txn.customer.user.username
@@ -72,12 +79,7 @@ def _send_idempotent_email(email_body, subject, send_to, purpose, key=None):
             purpose=purpose,
         )
         if not created:
-            logger.warning(
-                f"""
-                Email for {purpose} with key {key}
-                           already Processed.
-                           """
-            )
+            logger.warning(f"Email for {purpose} with key {key} already Processed.")
             return
 
         def _forward_email():

@@ -105,7 +105,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
-    {"NAME": "users.validators.PasswordCustomValidator"},
+    {
+        "NAME": "zoolflow.users.validators.PasswordCustomValidator",
+    },
 ]
 
 
@@ -166,6 +168,11 @@ LOGGING = {
     },
 }
 
+AUTHENTICATION_BACKENDS = [
+    "zoolflow.users.auth_backend.EmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -179,15 +186,15 @@ REST_FRAMEWORK = {
         "login": "10/minute",
         "profile": "30/minute",
         "new_password": "10/day",
-        "resend_code": "3/minute",
+        "resend_code": "20/h",
         "default": "100/hour",
     },
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
 }
 
 THROTTLES_SCOPE = {
-    "verifying_user_code": "verify_code",
-    "resend_user_code": "resend_code",
+    "validate_verification_code": "verify_code",
+    "resend_verification_code": "resend_code",
     "change_password": "new_password",
 }
 
@@ -211,7 +218,7 @@ EMAIL_DOMAIN = env("EMAIL_DOMAIN")
 MAILGUN_WEBHOOK_SIGINING_KEY = env("MAILGUN_WEBHOOK_SIGINING_KEY")
 
 # verification code constraints
-DEFAULT_EXPIRY_TIME = timedelta(minutes=10)
+CODE_LIFETIME = 60 * 3
 CODE_LENGTH = 6
 # customer restrictation
 ALLOW_AGE = 18

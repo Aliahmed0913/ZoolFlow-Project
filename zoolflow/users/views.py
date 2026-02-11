@@ -2,7 +2,6 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from django.views.generic import TemplateView
 from django.conf import settings
-
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet, GenericViewSet
 from rest_framework.permissions import IsAuthenticated
@@ -13,13 +12,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.request import Request
 from rest_framework.throttling import ScopedRateThrottle
-
 from . import serializers
 from .models import User
 from .services.verifying_code import (
     VerificationCodeService,
     VerificationCodeServiceError,
-    VerifyCodeStatus,
 )
 from .services.helpers import get_token_from_cookie, set_refresh_token_cookie
 from .permissions import IsAdminOrOwner, IsAdmin, IsAdminOrStaff
@@ -139,6 +136,7 @@ class UserProfileViewSet(ModelViewSet):
 
 class VerificationCodeViewSet(GenericViewSet):
     serializer_class = serializers.EmailCodeVerificationSerializer
+    throttle_classes = [ScopedRateThrottle]
 
     def get_throttles(self):
         self.throttle_scope = getattr(settings, "THROTTLES_SCOPE", {}).get(
@@ -146,8 +144,13 @@ class VerificationCodeViewSet(GenericViewSet):
         )
         return super().get_throttles()
 
-    @action(detail=False, methods=["POST"], url_path="validate", url_name="validate")
-    def verifying_user_code(self, request):
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="validate",
+        url_name="validate_code",
+    )
+    def validate_verification_code(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         received_code = serializer.validated_data.get("code")
@@ -155,40 +158,50 @@ class VerificationCodeViewSet(GenericViewSet):
 
         service = VerificationCodeService(email)
         try:
-            result, user = service.validate_code(received_code)
-
-            if result == VerifyCodeStatus.VALID:
-                refresh_token = RefreshToken.for_user(user=user)
-                response = Response(
-                    {
-                        "refresh": str(refresh_token),
-                        "access": str(refresh_token.access_token),
-                    },
-                    status=status.HTTP_200_OK,
-                )
-                response = set_refresh_token_cookie(response)
-                return response
+            service.validate_code(received_code)
+            user = User.objects.get(email=email)
+            refresh_token = RefreshToken.for_user(user=user)
+            response = Response(
+                {
+                    "refresh": str(refresh_token),
+                    "access": str(refresh_token.access_token),
+                },
+                status=status.HTTP_200_OK,
+            )
+            response = set_refresh_token_cookie(response)
+            return response
         except VerificationCodeServiceError as e:
             return Response(
-                {"detail": str(e)},
+                {"users": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    @action(detail=False, methods=["POST"], url_path="resend", url_name="resend-code")
-    def resend_user_code(self, request):
-        serializer = self.get_serializer(data=request.data)
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="resend",
+        url_name="resend_code",
+    )
+    def resend_verification_code(self, request):
+        data = (request.data).copy()
+        if data.get("code"):
+            # if there verification-code value in the request body remove it
+            data.pop("code")
+        # give code default 0's value to pass serialzer check
+        data.setdefault("code", "000000")
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data["email"]
 
         verify_code = VerificationCodeService(email)
-        result = verify_code.recreate_code_on_demand()
-
-        if result == VerifyCodeStatus.CREATED:
+        try:
+            verify_code.create_verification_code()
             return Response(
-                {"detail": "New verification code sent."},
+                {"users": "New verification code sent."},
                 status=status.HTTP_200_OK,
             )
-        return Response(
-            {"detail": "Failed to send verification code."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        except VerificationCodeServiceError as e:
+            return Response(
+                {"users": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

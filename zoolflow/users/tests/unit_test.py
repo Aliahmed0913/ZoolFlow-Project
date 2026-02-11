@@ -1,12 +1,10 @@
 import pytest
-from users.models import VerificationCode
 from django.utils import timezone
-from users.services.user_utils import remove_expired_code
-from users.services.verifying_code import (
-    VerificationCodeService as vcs,
-    CodeNotFoundError,
-    CodeExpiredError,
-    InvalidCodeError,
+from ..models import VerificationCode
+from ..services.helpers import remove_expired_code
+from ..services.verifying_code import (
+    VerificationCodeService,
+    VerificationCodeServiceError,
 )
 
 
@@ -14,8 +12,8 @@ from users.services.verifying_code import (
 class TestVerificationCodeService:
     def test_create_code(self, create_user):
         user1 = create_user()  # un active user
-        verify_code = vcs(user_email=user1.email)
-        verify_code.create_code(
+        verify_code = VerificationCodeService(email=user1.email)
+        verify_code.create_verification_code(
             expiry=None
         )  # can specify the live of our code (expiry) timedelta
         code_instance = VerificationCode.objects.get(user_id=user1.id)
@@ -25,20 +23,20 @@ class TestVerificationCodeService:
         received_code = "123456"
         user1 = create_user()
         # Not found code case
-        verify_code = vcs(user_email=user1.email)
-        with pytest.raises(CodeNotFoundError):
+        verify_code = VerificationCodeService(email=user1.email)
+        with pytest.raises(VerificationCodeServiceError):
             verify_code.validate_code(received_code=received_code)
         assert not user1.is_active
 
     def test_validate_code_expired(self, create_user, email_code):
         user1 = create_user()
         # Expired code case
-        verify_code = vcs(user_email=user1.email)
+        verify_code = VerificationCodeService(email=user1.email)
         expired_code = email_code(
             user=user1, expiry_time=timezone.now()
         )  # expired code
 
-        with pytest.raises(CodeExpiredError):
+        with pytest.raises(VerificationCodeServiceError):
             verify_code.validate_code(received_code="123456")
         expired_code.refresh_from_db()
         assert expired_code.is_used
@@ -46,10 +44,10 @@ class TestVerificationCodeService:
     def test_validate_code_invalid(self, create_user, email_code):
         user1 = create_user()
         # Invalid code case
-        verify_code = vcs(user_email=user1.email)
+        verify_code = VerificationCodeService(email=user1.email)
         email_code(user=user1)  # valid code
 
-        with pytest.raises(InvalidCodeError):
+        with pytest.raises(VerificationCodeServiceError):
             verify_code.validate_code(received_code="")
         assert not user1.is_active
 
@@ -57,7 +55,7 @@ class TestVerificationCodeService:
         user1 = create_user()
         # Valid code case
         email_code(user=user1)  # valid code
-        verify_code = vcs(user_email=user1.email)
+        verify_code = VerificationCodeService(email=user1.email)
         result, user1 = verify_code.validate_code(received_code="123456")
         user1.refresh_from_db()
         code = VerificationCode.objects.get(user=user1)
@@ -68,8 +66,12 @@ class TestVerificationCodeService:
     @pytest.mark.parametrize(
         "user,verify_code_status,next_status",
         [
-            ("customer", vcs.VerifyCodeStatus.ACTIVE, None),
-            ("p_customer", vcs.VerifyCodeStatus.CREATED, vcs.VerifyCodeStatus.VALID),
+            ("customer", VerificationCodeService.VerifyCodeStatus.ACTIVE, None),
+            (
+                "p_customer",
+                VerificationCodeService.VerifyCodeStatus.CREATED,
+                VerificationCodeService.VerifyCodeStatus.VALID,
+            ),
         ],
     )
     def test_recreate_code(
@@ -78,7 +80,7 @@ class TestVerificationCodeService:
         """Test recreate_code_on_demand behavior for active and inactive users"""
         # Active user case
         user1 = simple_users[user]
-        verify_code = vcs(user_email=user1.email)
+        verify_code = VerificationCodeService(email=user1.email)
         if user1.is_active:
             result = verify_code.recreate_code_on_demand()
             assert result == verify_code.VerifyCodeStatus.ACTIVE
