@@ -1,26 +1,53 @@
 from django.contrib import admin
 from zoolflow.customers.models import Customer, Address, KnowYourCustomer
 from config.settings import ADDRESSES_COUNT
+from django.forms.models import BaseInlineFormSet
+from django.core.exceptions import ValidationError
 
 
 # Register your models here.
-class AddressInline(admin.TabularInline):
+class AddressInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+
+        # forms that are not deleted and have data
+        active = [
+            f
+            for f in self.forms
+            if f.cleaned_data and not f.cleaned_data.get("DELETE", False)
+        ]
+
+        # max 3 addresses
+        if len(active) > ADDRESSES_COUNT:
+            raise ValidationError("Allowed only 3 addresses.")
+
+        # must have exactly one main address
+        mains = [f for f in active if f.cleaned_data.get("main_address")]
+
+        if len(mains) == 0:
+            raise ValidationError("Must be at least one main address.")
+        if len(mains) > 1:
+            raise ValidationError("Only one main address is allowed.")
+
+
+class AddressInline(admin.StackedInline):
     model = Address
+    formset = AddressInlineFormSet
     fields = (
-        "customer",
-        "country",
         "line",
         "state",
-        "appartment_number",
+        "apartment_number",
+        "postal_code",
         "main_address",
     )
+    readonly_fields = ("country",)
     max_num = ADDRESSES_COUNT
+    extra = 0
 
 
 class KYCInline(admin.StackedInline):
     model = KnowYourCustomer
     fields = (
-        "customer",
         "document_type",
         "document_id",
         "document_file",

@@ -1,8 +1,9 @@
 from pathlib import Path
 from rest_framework import serializers
+from .services.normalizers import normalize_phone_number
 from .models import Customer, Address, KnowYourCustomer
 from config.settings import DOCUMENT_SIZE, ADDRESSES_COUNT, STATE_LENGTH
-
+from django.db import transaction
 import logging
 
 logger = logging.getLogger()
@@ -24,6 +25,9 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
             f: {"required": True}
             for f in ("first_name", "last_name", "phone_number", "dob")
         }
+
+        def validate_phone_number(value: str):
+            return normalize_phone_number(value=value)
 
 
 class CustomerAddressSerializer(serializers.ModelSerializer):
@@ -54,6 +58,30 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
             )
         } | {"main_address": {"default": True}}
 
+    def validate(self, attrs):
+        customer = self.context["request"].user.customer_profile
+        # on create only
+        if not self.instance:
+            # check if there is more than the allowed addresses per a customer
+            addresses = Address.objects.filter(customer=customer)
+            if addresses.count() >= ADDRESSES_COUNT:
+                raise serializers.ValidationError(
+                    f"Allowed only {ADDRESSES_COUNT} addresses"
+                )
+        return attrs
+
+    def validate_main_address(self, value):
+        if not value:
+            # check if there is no current main address
+            customer = self.context["request"].user.customer_profile
+            main_address = Address.objects.filter(customer=customer, main_address=True)
+            # for update exclude the current instance
+            if self.instance:
+                main_address = main_address.exclude(pk=self.instance.pk)
+            if not main_address.exists():
+                raise serializers.ValidationError("Must be at least one main address")
+        return value
+
     def validate_state(self, value):
         # must be more than STATE_LENGTH characters
         if len(value) <= STATE_LENGTH:
@@ -65,54 +93,35 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def _enforce_main_address(self, customer, value, instance=None):
-        """
-        The rule for the main address field ensures the existence of at least one main address and no duplication of it.
-        """
-        addresses = Address.objects.filter(customer=customer)
-        # if user try to make no main address it will raise an error
-        if not value:
-            has_another_main = (
-                addresses.filter(main_address=True).exclude(id=instance.id).exists()
-                if instance
-                else addresses.filter(main_address=True).exists()
-            )
-            if not has_another_main:
-                logger.warning("Must at least have one main address")
-                raise serializers.ValidationError("Must at least have one main address")
-        else:
-            # reset all other main addresses to false if there new one true with query (update)
-            addresses.filter(main_address=True).update(main_address=False)
-
     def update(self, instance, validated_data):
-        # if user try to make no main address it will raise an error
-        if "main_address" in validated_data:
-            self._enforce_main_address(
-                instance.customer, validated_data["main_address"], instance
-            )
-        return super().update(instance, validated_data)
+        with transaction.atomic():
+            wants_main = validated_data.get("main_address", instance.main_address)
+
+            # prevent DB constraint failure on save when switching to main
+            if "main_address" in validated_data and validated_data["main_address"]:
+                validated_data["main_address"] = False
+
+            address = super().update(instance, validated_data)
+
+            if wants_main:
+                address.set_main_address()
+
+            return address
 
     def create(self, validated_data):
-        # add customer_id from the request
-        request = self.context.get("request")
-        customer = getattr(request.user, "customer_profile")
-        if not customer:
-            raise serializers.ValidationError("Customer profile not found.")
+        with transaction.atomic():
+            main_desire = validated_data.get("main_address", True)
 
-        validated_data["customer"] = customer
+            # avoid hitting UniqueConstraint on insert
+            if main_desire:
+                validated_data["main_address"] = False
 
-        # Restrict the address table to have only 3 addresses per customer
-        addresses = Address.objects.filter(customer=validated_data["customer"])
-        if addresses.count() >= ADDRESSES_COUNT:
-            logger.warning(
-                f"A customer can have a maximum of {ADDRESSES_COUNT} addresses"
-            )
-            raise serializers.ValidationError(
-                {"Addresses": "You have reached maximum capacity"}
-            )
+            address = super().create(validated_data)
 
-        self._enforce_main_address(customer, validated_data["main_address"])
-        return super().create(validated_data)
+            if main_desire:
+                address.set_main_address()
+
+            return address
 
 
 class KnowYourCustomerSerializer(serializers.ModelSerializer):

@@ -1,17 +1,22 @@
 import logging
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from ..models import Customer, Address, KnowYourCustomer
 
 logger = logging.getLogger(__name__)
 
+User = get_user_model()
+
 
 @transaction.atomic
-def initialize_customer(user):
-    customer = Customer.objects.create(user = user)
-    Address.objects.create(customer=customer,main_address=True)
+def initialize_customer(id):
+    user = User.objects.get(id=id)
+    customer = Customer.objects.create(user=user)
+    Address.objects.create(customer=customer, main_address=True)
     KnowYourCustomer.objects.create(customer=customer)
     return customer
+
 
 class SupportedCountryError(Exception):
     """Raised when the customer's country is unsupported"""
@@ -22,18 +27,20 @@ class SupportedCountryError(Exception):
         self.details = details
 
 
-def country_and_currency(customer_id, username):
+def currency_and_address(customer):
     """
     Return the customer's local currency,country
-    based on their main_address
+    based on their current main address
     """
     # Get customer main address
     address = Address.objects.filter(
-        customer_id=customer_id,
+        customer_id=customer.id,
         main_address=True,
     )
     if not address:
-        logger.error(f"There is no main address specified for {username}.")
+        logger.error(
+            f"There is no main address specified for {customer.user.username}."
+        )
         raise SupportedCountryError(
             message="There is no main address specified", details="Address"
         )
@@ -47,7 +54,7 @@ def country_and_currency(customer_id, username):
             details="Currency",
         )
     logger.info(
-        f"Customer {username} local currency has been successfully determined",
+        f"Customer {customer.user.username} local currency has been successfully determined",
     )
 
     return currency, address

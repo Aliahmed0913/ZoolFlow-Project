@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django_countries.fields import CountryField
-from rest_framework.exceptions import ValidationError
-from .validators import validate_phone, valid_age, validate_customer_name
+from django.db.models import Q, UniqueConstraint
+from django.core.exceptions import ValidationError
+from . import validators as V
+from config.settings import ADDRESSES_COUNT
 
 # Create your models here.
 User = get_user_model()
@@ -15,16 +17,19 @@ class Customer(models.Model):
 
     first_name = models.CharField(
         max_length=50,
-        null=True,
         blank=True,
-        validators=[validate_customer_name],
+        validators=[V.validate_first_name],
         help_text="Name must match the name in the document to succeed validation",
     )
-    last_name = models.CharField(max_length=50, null=True, blank=True)
+    last_name = models.CharField(max_length=50, blank=True)
     phone_number = models.CharField(
-        max_length=20, unique=True, null=True, blank=True, validators=[validate_phone]
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        validators=[V.validate_phone_number],
     )
-    dob = models.DateField(null=True, blank=True, validators=[valid_age])
+    dob = models.DateField(null=True, blank=True, validators=[V.valid_age])
     is_verified = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -39,32 +44,46 @@ class Address(models.Model):
         Customer, on_delete=models.CASCADE, related_name="addresses"
     )
     country = CountryField(default="EG", editable=False)
-    line = models.CharField(max_length=50, blank=True, null=True)
-    city = models.CharField(max_length=50, blank=True, null=True)
-    state = models.CharField(max_length=50, blank=True, null=True)
-    postal_code = models.CharField(max_length=20, blank=True, null=True)
+    line = models.CharField(max_length=50, blank=True)
+    city = models.CharField(max_length=50, blank=True)
+    state = models.CharField(max_length=50, blank=True)
+    postal_code = models.CharField(
+        max_length=10, blank=True, validators=[V.EGYPT_POSTAL_REGX]
+    )
 
-    building_number = models.CharField(max_length=10, blank=True, null=True)
-    apartment_number = models.CharField(max_length=10, blank=True, null=True)
-    main_address = models.BooleanField(default=False)
+    building_number = models.CharField(max_length=10, blank=True)
+    apartment_number = models.CharField(max_length=10, blank=True)
+    main_address = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def clean(self):
-        super().clean()
-        if len(self.postal_code) != 5 and not self.postal_code.isdigit():
-            raise ValidationError({"postal code": "In Egypt must be five digits only."})
+    def set_main_address(self):
+        # lock the customer row
+        self.customer.__class__.objects.select_for_update().filter(
+            pk=self.customer.id
+        ).get()
+        # disable other main addresses
+        type(self).objects.filter(customer=self.customer, main_address=True).exclude(
+            pk=self.pk
+        ).update(main_address=False)
+        if not self.main_address:
+            self.main_address = True
+            self.save(update_fields=["main_address"])
 
-    def save(self, *args, **kwargs):
-        if self.postal_code:
-            self.full_clean()
-        return super().save(*args, **kwargs)
+    class Meta:
+        ordering = ["-main_address", "-updated_at"]
+        constraints = [
+            UniqueConstraint(
+                fields=("customer",),
+                condition=Q(main_address=True),
+                name="single_main_address_for_a_customer",
+                violation_error_message="only one main address can be",
+            )
+        ]
 
     def __str__(self):
-        return (
-            f"{self.customer.first_name or self.customer.user.username} - {self.state}"
-        )
+        return f"{self.customer.first_name or self.customer.user.username} - {self.country}"
 
 
 class KnowYourCustomer(models.Model):
@@ -83,8 +102,8 @@ class KnowYourCustomer(models.Model):
     document_type = models.CharField(
         max_length=20, choices=DocumentType.choices, default=DocumentType.NATIONAL_ID
     )
-    document_id = models.CharField(max_length=100, blank=True, null=True)
-    document_file = models.FileField(upload_to="kyc-document/")
+    document_id = models.CharField(max_length=100, blank=True)
+    document_file = models.FileField(upload_to="kyc-document/", blank=True)
     status_tracking = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )

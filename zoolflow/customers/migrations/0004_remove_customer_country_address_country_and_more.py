@@ -8,37 +8,58 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('customers', '0003_rename_document_pic_knowyourcustomer_document_file_and_more'),
+        (
+            "customers",
+            "0003_rename_document_pic_knowyourcustomer_document_file_and_more",
+        ),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='customer',
-            name='country',
+            model_name="customer",
+            name="country",
         ),
         migrations.AddField(
-            model_name='address',
-            name='country',
-            field=django_countries.fields.CountryField(default='EG', editable=False, max_length=2),
+            model_name="address",
+            name="country",
+            field=django_countries.fields.CountryField(
+                default="EG", editable=False, max_length=2
+            ),
         ),
         migrations.AlterField(
-            model_name='address',
-            name='main_address',
+            model_name="address",
+            name="main_address",
             field=models.BooleanField(default=False),
         ),
         migrations.AlterField(
-            model_name='customer',
-            name='dob',
-            field=models.DateField(blank=True, null=True, validators=[zoolflow.customers.validators.valid_age]),
+            model_name="customer",
+            name="dob",
+            field=models.DateField(
+                blank=True,
+                null=True,
+                validators=[zoolflow.customers.validators.valid_age],
+            ),
         ),
         migrations.AlterField(
-            model_name='customer',
-            name='full_name',
-            field=models.CharField(blank=True, help_text='Name must match the name in the document to succeed validation', max_length=50, null=True, validators=[zoolflow.customers.validators.validate_customer_name]),
+            model_name="customer",
+            name="full_name",
+            field=models.CharField(
+                blank=True,
+                help_text="Name must match the name in the document to succeed validation",
+                max_length=50,
+                null=True,
+                validators=[zoolflow.customers.validators.validate_first_name],
+            ),
         ),
         migrations.AlterField(
-            model_name='customer',
-            name='phone_number',
-            field=models.CharField(blank=True, max_length=20, null=True, unique=True, validators=[zoolflow.customers.validators.validate_phone]),
+            model_name="customer",
+            name="phone_number",
+            field=models.CharField(
+                blank=True,
+                max_length=20,
+                null=True,
+                unique=True,
+                validators=[zoolflow.customers.validators.validate_phone_number],
+            ),
         ),
     ]
