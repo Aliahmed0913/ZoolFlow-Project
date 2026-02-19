@@ -1,11 +1,13 @@
 import pytest
-from users.models import User
 from django.db.models.signals import post_save
-from users.signals import initiate_verification_code
+from ..models import Customer
+from ..services.helpers import initialize_customer
+from zoolflow.users.signals import initiate_verification_code
+from zoolflow.users.models import User
 
 
 @pytest.fixture(scope="function")
-def create_activate_user(db, mocker):
+def create_activate_user(db):
     post_save.disconnect(initiate_verification_code, sender=User)
 
     def make_user(**kwargs):
@@ -18,15 +20,17 @@ def create_activate_user(db, mocker):
         )
         user.is_active = True
         user.save(update_fields=["is_active"])
-        post_save.connect(initiate_verification_code, sender=User)
         return user
 
-    return make_user
+    yield make_user
+    post_save.connect(initiate_verification_code, sender=User)
 
 
 @pytest.fixture()
-def authenticate_client(api_client, create_activate_user, mocker):
-    mocker.patch("users.signals.handle_user_registeration_verify_code")
-    user = create_activate_user()
-    api_client.force_authenticate(user=user)
-    return user
+def _create_customer(create_activate_user):
+    def start_customer(**kwargs):
+        user = create_activate_user(**kwargs)
+        initialize_customer(id=user.id)
+        return user, Customer.objects.get(user=user)
+
+    return start_customer
