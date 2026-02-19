@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
 from ..models import User
+from zoolflow.customers.services.helpers import initialize_customer
 from zoolflow.notifications.tasks import verification_code_mail_task
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,8 @@ class VerificationCodeService:
                 user.is_active = True
                 user.save(update_fields=["is_active"])
                 logger.info(f"Account {self.email} activated.")
+            transaction.on_commit(lambda: initialize_customer(id=user.pk))
+            logger.info("Customer and all references seted up.")
             cache.delete(self.email)
         else:
             logger.error(f"{self.email} entered code is invalid")
