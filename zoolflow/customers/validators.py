@@ -21,16 +21,17 @@ def validate_phone_number(value: str):
 
 
 def validate_first_name(value: str):
-    if not value[0].isupper():
-        logger.warning("Customer name must start with uppercase letter")
-        raise ValidationError(_("Name must start with an uppercase letter."))
-    if len(value) < CUSTOMER_NAME_LENGTH:
-        logger.warning(
-            f"Customer name must be more than {CUSTOMER_NAME_LENGTH} characters."
-        )
-        raise ValidationError(
-            _(f"Name must be more than {CUSTOMER_NAME_LENGTH} characters.")
-        )
+    if value:
+        if not value[0].isupper():
+            logger.warning("Customer name must start with uppercase letter")
+            raise ValidationError(_("Name must start with an uppercase letter."))
+        if len(value) < CUSTOMER_NAME_LENGTH:
+            logger.warning(
+                f"Customer name must be more than {CUSTOMER_NAME_LENGTH} characters."
+            )
+            raise ValidationError(
+                _(f"Name must be more than {CUSTOMER_NAME_LENGTH} characters.")
+            )
 
 
 def valid_age(value: date):

@@ -2,9 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django_countries.fields import CountryField
 from django.db.models import Q, UniqueConstraint
-from django.core.exceptions import ValidationError
 from . import validators as V
-from config.settings import ADDRESSES_COUNT
 
 # Create your models here.
 User = get_user_model()
@@ -18,6 +16,7 @@ class Customer(models.Model):
     first_name = models.CharField(
         max_length=50,
         blank=True,
+        null=True,
         validators=[V.validate_first_name],
         help_text="Name must match the name in the document to succeed validation",
     )
@@ -53,7 +52,7 @@ class Address(models.Model):
 
     building_number = models.CharField(max_length=10, blank=True)
     apartment_number = models.CharField(max_length=10, blank=True)
-    main_address = models.BooleanField(default=True)
+    main_address = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -67,6 +66,7 @@ class Address(models.Model):
         type(self).objects.filter(customer=self.customer, main_address=True).exclude(
             pk=self.pk
         ).update(main_address=False)
+        # mark current address processed as main
         if not self.main_address:
             self.main_address = True
             self.save(update_fields=["main_address"])

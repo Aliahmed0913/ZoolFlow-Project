@@ -3,6 +3,7 @@ from rest_framework.generics import RetrieveUpdateDestroyAPIView, RetrieveUpdate
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .models import Customer, Address, KnowYourCustomer
+from .permissions import IsCustomer
 from .serializers import (
     CustomerProfileSerializer,
     CustomerAddressSerializer,
@@ -13,7 +14,7 @@ from .serializers import (
 
 
 class CustomerProfileAPIView(RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCustomer]
     serializer_class = CustomerProfileSerializer
 
     def get_object(self):
@@ -21,7 +22,7 @@ class CustomerProfileAPIView(RetrieveUpdateDestroyAPIView):
 
 
 class CustomerAddressViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCustomer]
     serializer_class = CustomerAddressSerializer
 
     def perform_create(self, serializer):
@@ -29,16 +30,13 @@ class CustomerAddressViewSet(ModelViewSet):
         serializer.save(customer=customer)
 
     def get_queryset(self):
-        user = self.request.user
-        addresses = Address.objects.filter(customer=user.customer_profile)
+        addresses = Address.objects.filter(customer__user=self.request.user)
         return addresses
 
 
 class KnowYourCustomerAPIView(RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCustomer]
     serializer_class = KnowYourCustomerSerializer
 
     def get_object(self):
-        return get_object_or_404(
-            KnowYourCustomer, customer=self.request.user.customer_profile
-        )
+        return get_object_or_404(KnowYourCustomer, customer__user=self.request.user)

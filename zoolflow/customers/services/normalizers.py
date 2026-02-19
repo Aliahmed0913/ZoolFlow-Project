@@ -12,15 +12,15 @@ def normalize_phone_number(value: str, default_region: str = "EG"):
 
         if not phonenumbers.is_possible_number(phonenumber):
             logger.warning("phone_number format is not possible.")
-            raise ValidationError(_("Format is not possible"))
+            raise ValidationError(("Format is not possible"))
 
         if not phonenumbers.is_valid_number(phonenumber):
             logger.warning("phone_number not valid for specific region.")
-            raise ValidationError(_("Not valid for specific region"))
+            raise ValidationError(("Not valid for specific region"))
 
     except NumberParseException:
         logger.warning("phone_number is missing or invalid international format.")
-        raise ValidationError(_("Missing or invalid international format."))
+        raise ValidationError(("Missing or invalid international format."))
 
     return str(
         phonenumbers.format_number(phonenumber, phonenumbers.PhoneNumberFormat.E164)

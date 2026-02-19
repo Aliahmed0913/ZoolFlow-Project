@@ -1,17 +1,16 @@
-from pathlib import Path
-from rest_framework import serializers
-from .services.normalizers import normalize_phone_number
-from .models import Customer, Address, KnowYourCustomer
-from config.settings import DOCUMENT_SIZE, ADDRESSES_COUNT, STATE_LENGTH
-from django.db import transaction
 import logging
+from pathlib import Path
+from django.conf import settings
+from django.db import transaction
+from rest_framework import serializers
+from . import models as m
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class CustomerProfileSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Customer
+        model = m.Customer
         fields = [
             "user",
             "first_name",
@@ -26,13 +25,10 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
             for f in ("first_name", "last_name", "phone_number", "dob")
         }
 
-        def validate_phone_number(value: str):
-            return normalize_phone_number(value=value)
-
 
 class CustomerAddressSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Address
+        model = m.Address
         fields = [
             "id",
             "customer",
@@ -62,8 +58,9 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
         customer = self.context["request"].user.customer_profile
         # on create only
         if not self.instance:
+            ADDRESSES_COUNT = getattr(settings, "ADDRESSES_COUNT")
             # check if there is more than the allowed addresses per a customer
-            addresses = Address.objects.filter(customer=customer)
+            addresses = m.Address.objects.filter(customer=customer)
             if addresses.count() >= ADDRESSES_COUNT:
                 raise serializers.ValidationError(
                     f"Allowed only {ADDRESSES_COUNT} addresses"
@@ -74,7 +71,9 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
         if not value:
             # check if there is no current main address
             customer = self.context["request"].user.customer_profile
-            main_address = Address.objects.filter(customer=customer, main_address=True)
+            main_address = m.Address.objects.filter(
+                customer=customer, main_address=True
+            )
             # for update exclude the current instance
             if self.instance:
                 main_address = main_address.exclude(pk=self.instance.pk)
@@ -83,6 +82,7 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
         return value
 
     def validate_state(self, value):
+        STATE_LENGTH = getattr(settings, "STATE_LENGTH")
         # must be more than STATE_LENGTH characters
         if len(value) <= STATE_LENGTH:
             logger.warning(
@@ -126,7 +126,7 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
 
 class KnowYourCustomerSerializer(serializers.ModelSerializer):
     class Meta:
-        model = KnowYourCustomer
+        model = m.KnowYourCustomer
         fields = ["customer_id", "document_type", "document_id", "document_file"]
         read_only_fields = ("customer_id",)
         extra_kwargs = {
@@ -135,6 +135,7 @@ class KnowYourCustomerSerializer(serializers.ModelSerializer):
         }
 
     def validate_document_file(self, value):
+        DOCUMENT_SIZE = getattr(settings, "DOCUMENT_SIZE")
         # uploaded document size must be less than 250 KB
         if value.size > DOCUMENT_SIZE:
             logger.warning("File size is too big")
