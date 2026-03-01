@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django_countries",
     "django_filters",
     "django_extensions",
+    "storages",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
@@ -167,7 +168,32 @@ LOGGING = {
         },
     },
 }
-
+BUCKET_NAME = env("BUCKET_NAME")
+S3_ACCESS_KEY = env("S3_ACCESS_KEY")
+S3_SECRET_KEY = env("S3_SECRET_KEY")
+S3_ENDPOINT_URL = env("S3_ENDPOINT_URL")
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "kyc": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": BUCKET_NAME,
+            "access_key": S3_ACCESS_KEY,
+            "secret_key": S3_SECRET_KEY,
+            # MinIO local endpoint:
+            "endpoint_url": S3_ENDPOINT_URL,
+            # Important defaults for sensitive docs:
+            "default_acl": None,  # do NOT make objects public
+            "querystring_auth": True,  # URLs are signed (temporary)
+            "file_overwrite": False,
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 AUTHENTICATION_BACKENDS = [
     "zoolflow.users.auth_backend.EmailOrUsernameBackend",
     "django.contrib.auth.backends.ModelBackend",

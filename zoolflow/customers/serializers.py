@@ -52,10 +52,12 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
                 "apartment_number",
                 "postal_code",
             )
-        } | {"main_address": {"default": True}}
+        }
 
     def validate(self, attrs):
-        customer = self.context["request"].user.customer_profile
+        customer = self.context.get("customer")
+        if customer is None:
+            raise serializers.ValidationError("Customer context is required.")
         # on create only
         if not self.instance:
             ADDRESSES_COUNT = getattr(settings, "ADDRESSES_COUNT")
@@ -70,7 +72,10 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
     def validate_main_address(self, value):
         if not value:
             # check if there is no current main address
-            customer = self.context["request"].user.customer_profile
+            customer = self.context.get("customer")
+            if customer is None:
+                raise serializers.ValidationError("Customer context is required.")
+
             main_address = m.Address.objects.filter(
                 customer=customer, main_address=True
             )
@@ -127,12 +132,19 @@ class CustomerAddressSerializer(serializers.ModelSerializer):
 class KnowYourCustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.KnowYourCustomer
-        fields = ["customer_id", "document_type", "document_id", "document_file"]
-        read_only_fields = ("customer_id",)
+        fields = [
+            "id",
+            "customer_id",
+            "document_type",
+            "document_id",
+            "status_tracking",
+            "document_file",
+        ]
+        read_only_fields = ("customer_id", "status_tracking")
         extra_kwargs = {
             f: {"required": True}
             for f in ("document_type", "document_id", "document_file")
-        }
+        } | {"document_file": {"write_only": True}}
 
     def validate_document_file(self, value):
         DOCUMENT_SIZE = getattr(settings, "DOCUMENT_SIZE")

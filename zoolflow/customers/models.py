@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django_countries.fields import CountryField
 from django.db.models import Q, UniqueConstraint
+from django.core.files.storage import storages
 from . import validators as V
 
 # Create your models here.
@@ -103,7 +104,9 @@ class KnowYourCustomer(models.Model):
         max_length=20, choices=DocumentType.choices, default=DocumentType.NATIONAL_ID
     )
     document_id = models.CharField(max_length=100, blank=True)
-    document_file = models.FileField(upload_to="kyc-document/", blank=True)
+    document_file = models.FileField(
+        storage=storages["kyc"], upload_to="kyc/", blank=True
+    )
     status_tracking = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
@@ -113,4 +116,4 @@ class KnowYourCustomer(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.customer.first_name or self.customer.user.username} - {self.document_type}"
+        return f"{self.customer.user.username} - {self.document_type}"
