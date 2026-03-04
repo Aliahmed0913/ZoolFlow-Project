@@ -8,7 +8,3 @@ app = Celery("zoolflow")
 
 app.config_from_object("django.conf:settings", namespace="CELERY_")
 app.autodiscover_tasks()
-
-app.conf.update(
-    CELERY_ALWAYS_EAGER=True,
-)

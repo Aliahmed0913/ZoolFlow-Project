@@ -271,12 +271,11 @@ SUPPORTED_COUNTRIES = {
     "Pakistan": "PKR",
     "United Arab Emirates": "AED",
 }
-# Redis cache config
-REDIS_URL_CACHE = "redis://localhost:6379/1"
+# cache config
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL_CACHE,
+        "LOCATION": env("REDIS_URL_CACHE"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         },
