@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
     && rm -rf /var/lib/apt/lists/* 
 
 #trigger docker cache mechanism (cache the dependency build layer)
-COPY requirements.txt . 
+COPY requirements/dev.txt . 
 RUN pip install --upgrade pip \
-    && pip wheel -r requirements.txt -w /wheels
+    && pip wheel -r requirements/dev.txt -w /wheels
 
 # runtime stage : 2
 FROM python:3.11-slim AS runtime
@@ -23,10 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends libmariadb3 net
 
 # copy the wheels from the build stage
 COPY --from=builder /wheels /wheels
-COPY --from=builder /app/requirements.txt .
+COPY --from=builder /app/requirements/dev.txt .
 
 # --no-index => no internet use
-RUN pip install --no-index --find-links=/wheels -r requirements.txt
+RUN pip install --no-index --find-links=/wheels -r requirements/dev.txt
 
 # /usr/local/bin => default path so we can run this sh without typing the full path in linux shell (this folder owned by the root user)
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
@@ -42,5 +42,5 @@ RUN mkdir -p /app/media && chown -R appuser:appuser /app/media
 USER appuser
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["gunicorn", "stackpay.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
 
