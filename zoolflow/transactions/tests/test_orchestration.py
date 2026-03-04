@@ -9,7 +9,7 @@ def test_orchestration_transaction(mocker, customer_factory):
     customer = customer_factory()
     # replace paymob class with mock to prevent actual calls
     mock_paymob = mocker.patch(
-        "transactions.services.orchestration.PayMob",
+        "zoolflow.transactions.services.orchestration.PayMobClient",
     )
     # configure mock methods and return values
     instance = mock_paymob.return_value

@@ -1,7 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 from ..services.paymob import PayMobClient
-from customers.models import Customer, Address
+from zoolflow.customers.models import Customer, Address
 
 User = get_user_model()
 
@@ -48,6 +48,7 @@ def mock_post(mocker):
     mock_response = mocker.Mock()
     session.post.return_value = mock_response
     mocker.patch(
-        "transactions.services.paymob.get_session_with_retries", return_value=session
+        "zoolflow.transactions.services.paymob.get_session_with_retries",
+        return_value=session,
     )
     return mock_response
