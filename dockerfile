@@ -5,11 +5,11 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
 # apt-get => package manager for os-level (linux based). update=> download metadata list(catalog)
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential default-libmysqlclient-dev pkg-config gcc \
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential default-libmysqlclient-dev libpq-dev pkg-config gcc \
     && rm -rf /var/lib/apt/lists/* 
 
 #trigger docker cache mechanism (cache the dependency build layer)
-COPY requirements/dev.txt . 
+COPY requirements/dev.txt requirements/dev.txt
 RUN pip install --upgrade pip \
     && pip wheel -r requirements/dev.txt -w /wheels
 
@@ -18,12 +18,12 @@ FROM python:3.11-slim AS runtime
 WORKDIR /app
 
 # to load mysqlclient at the runtime and netcat to check tcp connection
-RUN apt-get update && apt-get install -y --no-install-recommends libmariadb3 netcat-openbsd \
+RUN apt-get update && apt-get install -y --no-install-recommends libmariadb3 libpq5 netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # copy the wheels from the build stage
 COPY --from=builder /wheels /wheels
-COPY --from=builder /app/requirements/dev.txt .
+COPY --from=builder /app/requirements/dev.txt requirements/dev.txt
 
 # --no-index => no internet use
 RUN pip install --no-index --find-links=/wheels -r requirements/dev.txt

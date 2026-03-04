@@ -4,8 +4,8 @@
 # this line ensure if any command fail the entire script stop => (prevent starting the server if there is error)
 set -e
 
-# sh command to check connectivity to mysql port. (netcat(nc)=>--check TCP open, connect to socket, send data) . -z scan without send data
-until nc -z db 3306;do
+# sh command to check connectivity to postgres port. (netcat(nc)=>--check TCP open, connect to socket, send data) . -z scan without send data
+until nc -z db 5432;do
     sleep 0.5
 done
 echo "DB ready!"

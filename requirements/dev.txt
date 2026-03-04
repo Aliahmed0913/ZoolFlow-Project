@@ -28,6 +28,7 @@ idna==3.11
 iniconfig==2.0.0
 jmespath==1.1.0
 kombu==5.5.4
+gunicorn==23.0.0
 mysqlclient==2.2.7
 numpy==2.2.2
 packaging==24.2
