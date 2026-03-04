@@ -37,10 +37,10 @@ class TransactionViewSet(ModelViewSet):
         """filter transactions based on user role"""
         role = self.request.user.role_management
         if role == user.Roles.CUSTOMER:
-            return bring_transaction(
-                customer=self.request.user.customer_profile,
-            )
-        return Transaction.objects.all()
+            return Transaction.objects.filter(customer__user=self.request.user)
+        # permission for staff to view all transactions only
+        elif role in (user.Roles.STAFF, user.Roles.ADMIN):
+            return Transaction.objects.all()
 
     @method_decorator(csrf_protect)
     def create(self, request, *args, **kwargs):
