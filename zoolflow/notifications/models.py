@@ -3,6 +3,10 @@ from django.db import models
 
 # Create your models here.
 class EmailEvent(models.Model):
+    class EmailEventPurpose(models.TextChoices):
+        TRANSACTION_UPDATE = "transaction_update", "Transaction Update"
+        VERIFICATION_CODE = "verification_code", "Verification Code"
+
     class MessageStatus(models.TextChoices):
         INITIATED = "initiated", "Initiated"
         QUEUED = "queued", "Queued"
@@ -20,7 +24,7 @@ class EmailEvent(models.Model):
         max_length=100, unique=True, null=True, blank=True
     )
     to_email = models.CharField(max_length=50)
-    purpose = models.CharField(max_length=100)
+    purpose = models.CharField(max_length=100, choices=EmailEventPurpose.choices)
     status = models.CharField(
         max_length=20,
         choices=MessageStatus.choices,

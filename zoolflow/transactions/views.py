@@ -1,8 +1,7 @@
 import logging
 from django.views.generic import TemplateView
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_protect
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
@@ -17,11 +16,18 @@ from .services.orchestration import (
     TransactionOrchestrationService,
     TransactionOrchestrationServiceError,
 )
-from .services.helpers import bring_transaction
 from .services.webhook import WebhookServiceError, WebhookService
+from .services.paymob import ProviderServiceError
 
 user = get_user_model()
 logger = logging.getLogger(__name__)
+
+
+def _request_context(request):
+    return {
+        "request_id": request.headers.get("X-Request-ID", ""),
+        "path": request.path,
+    }
 
 
 # Create your views here.
@@ -41,8 +47,8 @@ class TransactionViewSet(ModelViewSet):
         # permission for staff to view all transactions only
         elif role in (user.Roles.STAFF, user.Roles.ADMIN):
             return Transaction.objects.all()
+        return Transaction.objects.none()
 
-    @method_decorator(csrf_protect)
     def create(self, request, *args, **kwargs):
         """
         Create a new transaction with PayMob orchestration.
@@ -52,19 +58,56 @@ class TransactionViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         customer = request.user.customer_profile
-        validated_data = serializer.validated_data
+        validated_data = dict(serializer.validated_data)
+        idempotency_key = request.headers.get("Idempotency-Key")
+        if idempotency_key and len(idempotency_key) > 64:
+            return Response(
+                {"non_field_errors": ["Idempotency-Key exceeds max length (64)."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if idempotency_key:
+            existing = Transaction.objects.filter(
+                customer=customer,
+                idempotency_key=idempotency_key,
+            ).first()
+            if existing:
+                logger.info(
+                    "Idempotent transaction replay served.",
+                    extra={"transaction_id": existing.id, **_request_context(request)},
+                )
+                output_serializer = self.get_serializer(existing)
+                return Response(output_serializer.data, status=status.HTTP_200_OK)
+            validated_data["idempotency_key"] = idempotency_key
 
         try:
             orchestration_service = TransactionOrchestrationService(customer)
             transaction = orchestration_service.create_transaction(
                 validated_data,
             )
+        except IntegrityError:
+            if idempotency_key:
+                existing = Transaction.objects.filter(
+                    customer=customer,
+                    idempotency_key=idempotency_key,
+                ).first()
+                if existing:
+                    output_serializer = self.get_serializer(existing)
+                    return Response(output_serializer.data, status=status.HTTP_200_OK)
+            raise
         except TransactionOrchestrationServiceError as e:
             return Response(
                 {"non_field_errors": [f"{e.details}:{e.message}"]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        logger.info(
+            "Transaction created successfully.",
+            extra={
+                "merchant_order_id": transaction.merchant_order_id,
+                "customer_id": customer.id,
+                **_request_context(request),
+            },
+        )
         output_serializer = self.get_serializer(transaction)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -73,27 +116,20 @@ class PayMobWebHookView(APIView):
     def post(self, request):
         try:
             data = request.data.get("obj")
-            if not data:
+            if not data or not isinstance(data, dict):
                 return Response(
-                    {"Webhook": "Invalid webhook data received."},
+                    {"Webhook": "Invalid webhook payload."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            # check idempotency based on transaction id
-            transaction_id = data.get("id")
-            # None indicate new webhook return after process a transaction
-            transaction = bring_transaction(transaction_id=transaction_id)
 
-            if transaction:
-                # check if transaction is already processed
-                if transaction.state != transaction.TransactionState.PENDING:
-                    logger.warning(
-                        f"Transaction {transaction_id} already processed",
-                    )
-                    return Response(
-                        {"Webhook": "Transaction already processed."},
-                        status=status.HTTP_200_OK,
-                    )
+            transaction_id = data.get("id")
             merchant_id = data.get("order", {}).get("merchant_order_id")
+            if not transaction_id or not merchant_id:
+                return Response(
+                    {"Webhook": "Missing transaction reference fields."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Check incoming HMAC signature with computed one internally
             w_service = WebhookService(data, merchant_id, transaction_id)
             received_hmac = request.GET.get("hmac")
@@ -103,6 +139,14 @@ class PayMobWebHookView(APIView):
             TransactionOrchestrationService.update_and_mail_state(
                 merchant_id, transaction_id
             )
+            logger.info(
+                "Webhook processed successfully.",
+                extra={
+                    "merchant_order_id": merchant_id,
+                    "provider_transaction_id": transaction_id,
+                    **_request_context(request),
+                },
+            )
 
             return Response(
                 {"Webhook": "HMAC successfully verified."},
@@ -110,6 +154,17 @@ class PayMobWebHookView(APIView):
             )
 
         except WebhookServiceError as e:
+            return Response(
+                {"non_field_errors": [f"{e.details}:{e.message}"]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except ProviderServiceError as e:
+            return Response(
+                {"non_field_errors": [f"Provider error:{e.message}"]},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except TransactionOrchestrationServiceError as e:
             return Response(
                 {"non_field_errors": [f"{e.details}:{e.message}"]},
                 status=status.HTTP_400_BAD_REQUEST,

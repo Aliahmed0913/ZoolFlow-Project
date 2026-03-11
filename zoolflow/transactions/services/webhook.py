@@ -22,31 +22,38 @@ class WebhookService:
         self.transaction_id = transaction_id
 
     def verify_paymob_hmac(self, received_hmac):
-        concatenate_fields = str.join(
-            "",
-            [
-                str(self.data["amount_cents"]),
-                str(self.data["created_at"]),
-                str(self.data["currency"]),
-                str(self.data["error_occured"]).lower(),
-                str(self.data["has_parent_transaction"]).lower(),
-                str(self.data["id"]),
-                str(self.data["integration_id"]),
-                str(self.data["is_3d_secure"]).lower(),
-                str(self.data["is_auth"]).lower(),
-                str(self.data["is_capture"]).lower(),
-                str(self.data["is_refunded"]).lower(),
-                str(self.data["is_standalone_payment"]).lower(),
-                str(self.data["is_voided"]).lower(),
-                str(self.data["order"]["id"]),
-                str(self.data["owner"]),
-                str(self.data["pending"]).lower(),
-                str(self.data["source_data"]["pan"]),
-                str(self.data["source_data"]["sub_type"]),
-                str(self.data["source_data"]["type"]),
-                str(self.data["success"]).lower(),
-            ],
-        )
+        try:
+            concatenate_fields = str.join(
+                "",
+                [
+                    str(self.data["amount_cents"]),
+                    str(self.data["created_at"]),
+                    str(self.data["currency"]),
+                    str(self.data["error_occured"]).lower(),
+                    str(self.data["has_parent_transaction"]).lower(),
+                    str(self.data["id"]),
+                    str(self.data["integration_id"]),
+                    str(self.data["is_3d_secure"]).lower(),
+                    str(self.data["is_auth"]).lower(),
+                    str(self.data["is_capture"]).lower(),
+                    str(self.data["is_refunded"]).lower(),
+                    str(self.data["is_standalone_payment"]).lower(),
+                    str(self.data["is_voided"]).lower(),
+                    str(self.data["order"]["id"]),
+                    str(self.data["owner"]),
+                    str(self.data["pending"]).lower(),
+                    str(self.data["source_data"]["pan"]),
+                    str(self.data["source_data"]["sub_type"]),
+                    str(self.data["source_data"]["type"]),
+                    str(self.data["success"]).lower(),
+                ],
+            )
+        except (KeyError, TypeError) as exc:
+            raise WebhookServiceError(
+                "Invalid webhook payload structure.",
+                details=f"PAYLOAD:{exc}",
+            )
+
         secret_key = getattr(settings, "HMAC_SECRET_KEY")
         WebhookService.verify_signature(
             received_hmac=received_hmac,
@@ -69,9 +76,19 @@ class WebhookService:
         :param secret_key: secret key used for HMAC computation
         :param digiestmod: hashing algorithm to use (default: sha512)
         """
-        encode_key = kwargs["secret_key"].encode("utf-8")
-        encode_fields = kwargs["concatenated_fields"].encode("utf-8")
         received_hmac = kwargs["received_hmac"]
+        if not received_hmac:
+            raise WebhookServiceError(
+                "Missing HMAC signature in the request.", "MISSING_HMAC"
+            )
+        secret_key = kwargs.get("secret_key")
+        if not secret_key:
+            raise WebhookServiceError(
+                "Missing HMAC secret configuration.", "MISSING_SECRET"
+            )
+
+        encode_key = secret_key.encode("utf-8")
+        encode_fields = kwargs["concatenated_fields"].encode("utf-8")
         digiestmod = kwargs.get("digestmod", hashlib.sha512)
         calculate_hmac = hmac.new(
             encode_key, encode_fields, digestmod=digiestmod

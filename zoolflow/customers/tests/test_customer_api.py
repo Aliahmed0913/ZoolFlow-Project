@@ -1,5 +1,8 @@
-import tempfile
+import shutil
+import uuid
+from pathlib import Path
 import pytest
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
@@ -82,7 +85,7 @@ class TestPermissionsAndSerializers:
 @pytest.mark.django_db()
 class TestViews:
     def test_profile_requires_authentication(self, api_client):
-        response = api_client.get(reverse("customers:customer-profile"))
+        response = api_client.get(reverse("customers:customer_profile"))
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_profile_denies_non_customer_role(self, api_client, create_activate_user):
@@ -92,7 +95,7 @@ class TestViews:
             role_management=User.Roles.STAFF,
         )
         api_client.force_authenticate(user=staff)
-        response = api_client.get(reverse("customers:customer-profile"))
+        response = api_client.get(reverse("customers:customer_profile"))
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_profile_returns_404_for_customer_without_profile(
@@ -104,7 +107,7 @@ class TestViews:
             role_management=User.Roles.CUSTOMER,
         )
         api_client.force_authenticate(user=user)
-        response = api_client.get(reverse("customers:customer-profile"))
+        response = api_client.get(reverse("customers:customer_profile"))
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_profile_patch_updates_allowed_fields(self, api_client, _create_customer):
@@ -114,7 +117,7 @@ class TestViews:
         )
         api_client.force_authenticate(user=user)
         response = api_client.patch(
-            reverse("customers:customer-profile"),
+            reverse("customers:customer_profile"),
             data={
                 "first_name": "Ahmed",
                 "last_name": "Ali",
@@ -236,10 +239,12 @@ class TestViews:
             email=f"kyc_{file_name}_{file_size}@example.com",
         )
         api_client.force_authenticate(user=user)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with override_settings(MEDIA_ROOT=tmpdir):
+        tmpdir = Path(settings.BASE_DIR) / "media" / f"pytest_uploads_{uuid.uuid4().hex}"
+        tmpdir.mkdir(parents=True, exist_ok=True)
+        try:
+            with override_settings(MEDIA_ROOT=str(tmpdir)):
                 response = api_client.patch(
-                    reverse("customers:kyc-docs"),
+                    reverse("customers:kyc_customer_detail"),
                     data={
                         "document_type": KnowYourCustomer.DocumentType.NATIONAL_ID,
                         "document_id": "ABC12345",
@@ -251,4 +256,6 @@ class TestViews:
                     },
                     format="multipart",
                 )
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
         assert response.status_code == expected

@@ -1,14 +1,13 @@
 import pytest
-from datetime import timedelta
-from django.utils import timezone
 from django.conf import settings
-from ..models import User, VerificationCode
+from django.core.cache import cache
+from ..models import User
 
 
 @pytest.fixture
 def mock_mail(mocker):
     return mocker.patch(
-        "users.services.verifying_code.verification_code_mail_task.delay"
+        "zoolflow.users.services.verifying_code.verification_code_mail_task.delay"
     )
 
 
@@ -70,15 +69,10 @@ def create_user(db):
 
 
 @pytest.fixture
-def email_code(db):
-    def create_email_code(**kwargs):
-        return VerificationCode.objects.create(
-            user=kwargs.get("user"),
-            code=kwargs.get("code", "123456"),
-            expiry_time=kwargs.get(
-                "expiry_time", timezone.now() + timedelta(minutes=10)
-            ),
-            is_used=kwargs.get("is_used", False),
-        )
+def verification_code_cache():
+    def set_code(email, code="123456", timeout=None):
+        ttl = getattr(settings, "CODE_LIFETIME", 60 * 2) if timeout is None else timeout
+        cache.set(email, str(code), timeout=ttl)
+        return str(code)
 
-    return create_email_code
+    return set_code

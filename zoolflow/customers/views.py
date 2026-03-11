@@ -20,7 +20,7 @@ class CustomerPermissionMixin:
 
 
 class CustomerProfileAPIView(CustomerPermissionMixin, g.RetrieveUpdateDestroyAPIView):
-
+    permission_classes = [IsAuthenticated, IsCustomer]
     serializer_class = s.CustomerProfileSerializer
 
     def get_object(self):

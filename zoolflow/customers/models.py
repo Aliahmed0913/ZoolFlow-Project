@@ -9,6 +9,10 @@ from . import validators as V
 User = get_user_model()
 
 
+def get_kyc_storage():
+    return storages["kyc"]
+
+
 class Customer(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="customer_profile"
@@ -105,7 +109,7 @@ class KnowYourCustomer(models.Model):
     )
     document_id = models.CharField(max_length=100, blank=True)
     document_file = models.FileField(
-        storage=storages["kyc"], upload_to="kyc/", blank=True
+        storage=get_kyc_storage, upload_to="kyc/", blank=True
     )
     status_tracking = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING

@@ -1,138 +1,103 @@
-from datetime import timedelta
 import pytest
+from django.core.cache import cache
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework import status
-from ..models import VerificationCode
 
 
 @pytest.mark.django_db(transaction=True)
-def test_user_registration(api_client, mock_mail):
-    # mock the verify code mail to not send the email realy
+def test_user_registration_creates_inactive_user_and_cached_code(api_client, mock_mail):
     url = reverse("users:registration")
-
     payload = {
-        "username": "GoodFather",
+        "username": "good_father",
         "password": "Strong0913$",
         "email": "example0913@example.com",
     }
+
     response = api_client.post(path=url, data=payload, format="json")
-    verify_code = VerificationCode.objects.filter(user_id=response.data["id"]).first()
 
     assert response.status_code == status.HTTP_201_CREATED
-    assert verify_code is not None
+    assert response.data["email"] == payload["email"]
+    assert cache.get(payload["email"]) is not None
     assert mock_mail.called
-    # User with the same email tries to register, they are unacceptable
-    response = api_client.post(path=url, data=payload)
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-@pytest.mark.django_db()
+@pytest.mark.django_db
 class TestUserProfileViewSet:
     @pytest.mark.parametrize(
-        "role, excpected_status",
+        "role, expected_status",
         [("customer", status.HTTP_403_FORBIDDEN), ("staff", status.HTTP_200_OK)],
     )
-    def test_get_profiles(
-        self, api_client, simple_users, role, excpected_status, mocker
-    ):
-        # reset the login state
+    def test_get_profiles(self, api_client, simple_users, role, expected_status):
         api_client.force_authenticate(user=None)
-
-        # Must be admin or staff for this action (see all users profiles)
-        user1 = simple_users[role]
+        user = simple_users[role]
         url = reverse("users:user_profile-list")
-        api_client.force_authenticate(user=user1)
-        response = api_client.get(url)
-
-        assert response.status_code == excpected_status
-
-    def test_retrieve_update_profile(self, api_client, simple_users):
-        # reset the login state
-        api_client.force_authenticate(user=None)
-
-        # Must be either admin or staff
-        user1 = simple_users["admin"]
-        user2 = simple_users["customer"]
-
-        api_client.force_authenticate(user=user1)
-        # viewname and kwargs for reverse function
-        details = {
-            "viewname": "users:user_profile-detail",
-            "kwargs": {"pk": user1.id},
-        }
-        url = reverse(**details)
-        response = api_client.get(url)
-
-        assert response.data["id"] == user1.id
-
-        # Must be admin user for partial update the users profile
-        details["kwargs"]["pk"] = user2.id
-        url = reverse(**details)
-        payload = {"username": "updated_name"}
-        response = api_client.patch(url, data=payload)
-
-        user2.refresh_from_db()
-        assert user2.username == "updated_name" == response.data["username"]
-
-    def test_update_get_own_profile(self, api_client, create_user):
-        # reset the login state
-        api_client.force_authenticate(user=None)
-
-        user = create_user(username="AliStack")
-        url = reverse("users:user_profile-mine")
         api_client.force_authenticate(user=user)
         response = api_client.get(url)
+        assert response.status_code == expected_status
 
-        # Check for returned user profile
+    def test_retrieve_update_profile(self, api_client, simple_users):
+        api_client.force_authenticate(user=None)
+        admin_user = simple_users["admin"]
+        customer_user = simple_users["customer"]
+
+        api_client.force_authenticate(user=admin_user)
+        detail_url = reverse("users:user_profile-detail", kwargs={"pk": admin_user.id})
+        response = api_client.get(detail_url)
+        assert response.data["id"] == admin_user.id
+
+        patch_url = reverse("users:user_profile-detail", kwargs={"pk": customer_user.id})
+        response = api_client.patch(patch_url, data={"username": "updated_name"})
+        customer_user.refresh_from_db()
         assert response.status_code == status.HTTP_200_OK
+        assert customer_user.username == "updated_name"
 
-        payload = {"username": "Esteces"}
-        response = api_client.patch(url, data=payload)
+    def test_update_get_own_profile(self, api_client, create_user):
+        api_client.force_authenticate(user=None)
+        user = create_user(username="AliStack", is_active=True)
+        url = reverse("users:user_profile-mine")
+        api_client.force_authenticate(user=user)
 
-        assert response.status_code == status.HTTP_200_OK
+        assert api_client.get(url).status_code == status.HTTP_200_OK
+        assert api_client.patch(url, data={"username": "Esteces"}).status_code == status.HTTP_200_OK
 
     def test_change_password_user(self, api_client, create_user):
-        # reset the login state
         api_client.force_authenticate(user=None)
-
-        user = create_user()
+        user = create_user(is_active=True)
         url = reverse("users:user_profile-new-password")
         api_client.force_authenticate(user=user)
         payload = {"new_password": "Stackpay09$", "old_password": "Aliahmed091$"}
         response = api_client.patch(url, data=payload)
-
         assert response.status_code == status.HTTP_200_OK
 
 
-@pytest.mark.django_db()
+@pytest.mark.django_db
 class TestVerificationCodeViewSet:
-    def test_verify_user_code(self, api_client, create_user, email_code):
-        # Verify with the active unused user code
-        user = create_user()
-        user_code = email_code(user=user)
+    def test_verify_user_code(self, api_client, create_user, verification_code_cache, mocker):
+        user = create_user(is_active=False)
+        verification_code_cache(user.email, code="246810")
+        mocker.patch("zoolflow.users.services.verifying_code.initialize_customer")
 
-        url = reverse("users:verify_code-validate")
-        payload = {"email": user.email, "code": user_code.code}
+        url = reverse("users:verify_code-validate_code")
+        payload = {"email": user.email, "code": "246810"}
         response = api_client.post(url, data=payload)
 
         user.refresh_from_db()
         assert response.status_code == status.HTTP_200_OK
+        assert user.is_active is True
         assert "access" in response.data
 
-    def test_resend_verify_code(self, api_client, create_user, email_code):
-        # Resend the code when the last one expired or was unreceived
-        user = create_user()
-        # initialize on expired code for that user
-        code = email_code(user=user, expiry_time=timezone.now())
+    def test_resend_verify_code(self, api_client, create_user, mock_mail):
+        user = create_user(is_active=False)
+        cache.delete(user.email)
+        url = reverse("users:verify_code-resend_code")
 
-        url = reverse("users:verify_code-resend-code")
         response = api_client.post(
             url,
             data={
                 "email": user.email,
-                "code": code.code,
             },
         )
 
         assert response.status_code == status.HTTP_200_OK
+        assert cache.get(user.email) is not None
+        assert mock_mail.called

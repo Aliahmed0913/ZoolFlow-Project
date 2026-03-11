@@ -10,20 +10,16 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = (
             "customer",
             "transaction_id",
-            "amount",
-            "state",
-            "order_id",
-            "payment_token",
-            "created_at",
-            "state_display",
             "merchant_order_id",
+            "order_id",
+            "amount",
+            "state_display",
+            "created_at",
         )
         read_only_fields = (
             "customer",
             "transaction_id",
-            "state",
             "order_id",
-            "payment_token",
             "merchant_order_id",
         )
         extra_kwargs = {"amount": {"required": True}}

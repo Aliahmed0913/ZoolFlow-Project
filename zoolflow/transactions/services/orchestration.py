@@ -69,9 +69,19 @@ class TransactionOrchestrationService:
         except ProviderServiceError as e:
             with db_transaction.atomic():
                 tx = retrieve_transaction_for_update(id=transaction.id)
-                tx.state = Transaction.TransactionState.FAILED
+                if not tx:
+                    raise TransactionOrchestrationServiceError(
+                        "Transaction was not found while handling provider failure.",
+                        details="Transaction",
+                    )
+                try:
+                    tx.transition_to(Transaction.TransactionState.FAILED)
+                except ValueError as exc:
+                    raise TransactionOrchestrationServiceError(
+                        str(exc),
+                        details="Transition",
+                    )
                 tx.save(update_fields=["state"])
-                print("Transaction marked as FAILED due to provider error.")
             logger.error(
                 f"Transaction {merchant_id} failed during provider interaction: {e.message}"
             )
@@ -86,11 +96,21 @@ class TransactionOrchestrationService:
         """
         with db_transaction.atomic():
             tx = retrieve_transaction_for_update(id=transaction.id)
+            if not tx:
+                raise TransactionOrchestrationServiceError(
+                    "Transaction was not found while storing provider fields.",
+                    details="Transaction",
+                )
             tx.order_id = provider_id
             tx.payment_token = payment_token
-            tx.state = Transaction.TransactionState.PENDING
+            try:
+                tx.transition_to(Transaction.TransactionState.PENDING)
+            except ValueError as exc:
+                raise TransactionOrchestrationServiceError(
+                    str(exc),
+                    details="Transition",
+                )
             tx.save(update_fields=["order_id", "payment_token", "state"])
-            print("transaction updated with provider fields.")
         logger.info(f"Transaction {tx.merchant_order_id} updated with provider fields.")
 
     @staticmethod
@@ -139,12 +159,37 @@ class TransactionOrchestrationService:
 
         from zoolflow.notifications.tasks import transaction_state_email_task
 
+        if not merchant_id or not transaction_id:
+            raise TransactionOrchestrationServiceError(
+                "Missing merchant_id or transaction_id in webhook payload.",
+                details="Transaction",
+            )
+
         state = TransactionOrchestrationService.transaction_current_state(
             transaction_id
         )
         with db_transaction.atomic():
             tx = retrieve_transaction_for_update(merchant_order_id=merchant_id)
-            tx.state = state
+            if not tx:
+                raise TransactionOrchestrationServiceError(
+                    f"Transaction {merchant_id} does not exist.",
+                    details="Transaction",
+                )
+
+            is_same_state = tx.state == state
+            is_same_provider_txn = str(tx.transaction_id) == str(transaction_id)
+            if is_same_state and is_same_provider_txn:
+                logger.warning(
+                    f"Transaction {transaction_id} already processed with state {tx.state}",
+                )
+                return
+            try:
+                tx.transition_to(state)
+            except ValueError as exc:
+                raise TransactionOrchestrationServiceError(
+                    str(exc),
+                    details="Transition",
+                )
             tx.transaction_id = transaction_id
             tx.save(update_fields=["state", "transaction_id"])
             logger.info(f"Transaction {tx.transaction_id} updated to {tx.state}.")

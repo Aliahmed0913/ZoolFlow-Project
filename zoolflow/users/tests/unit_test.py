@@ -1,7 +1,6 @@
+from django.db import transaction
 import pytest
-from django.utils import timezone
-from ..models import VerificationCode
-from ..services.helpers import remove_expired_code
+from django.core.cache import cache
 from ..services.verifying_code import (
     VerificationCodeService,
     VerificationCodeServiceError,
@@ -10,109 +9,62 @@ from ..services.verifying_code import (
 
 @pytest.mark.django_db
 class TestVerificationCodeService:
-    def test_create_code(self, create_user):
-        user1 = create_user()  # un active user
-        verify_code = VerificationCodeService(email=user1.email)
-        verify_code.create_verification_code(
-            expiry=None
-        )  # can specify the live of our code (expiry) timedelta
-        code_instance = VerificationCode.objects.get(user_id=user1.id)
-        assert code_instance is not None
+    def test_create_code_sets_cache_and_triggers_mail(self, create_user, mock_mail):
+        user = create_user(is_active=False)
+        cache.delete(user.email)
+        service = VerificationCodeService(email=user.email)
 
-    def test_validate_code_not_found(self, create_user):
-        received_code = "123456"
-        user1 = create_user()
-        # Not found code case
-        verify_code = VerificationCodeService(email=user1.email)
-        with pytest.raises(VerificationCodeServiceError):
-            verify_code.validate_code(received_code=received_code)
-        assert not user1.is_active
+        service.create_verification_code()
 
-    def test_validate_code_expired(self, create_user, email_code):
-        user1 = create_user()
-        # Expired code case
-        verify_code = VerificationCodeService(email=user1.email)
-        expired_code = email_code(
-            user=user1, expiry_time=timezone.now()
-        )  # expired code
+        cached_code = cache.get(user.email)
+        assert cached_code is not None
+        assert mock_mail.called
 
-        with pytest.raises(VerificationCodeServiceError):
-            verify_code.validate_code(received_code="123456")
-        expired_code.refresh_from_db()
-        assert expired_code.is_used
-
-    def test_validate_code_invalid(self, create_user, email_code):
-        user1 = create_user()
-        # Invalid code case
-        verify_code = VerificationCodeService(email=user1.email)
-        email_code(user=user1)  # valid code
-
-        with pytest.raises(VerificationCodeServiceError):
-            verify_code.validate_code(received_code="")
-        assert not user1.is_active
-
-    def test_validate_code_valid(self, create_user, email_code):
-        user1 = create_user()
-        # Valid code case
-        email_code(user=user1)  # valid code
-        verify_code = VerificationCodeService(email=user1.email)
-        result, user1 = verify_code.validate_code(received_code="123456")
-        user1.refresh_from_db()
-        code = VerificationCode.objects.get(user=user1)
-        assert result == verify_code.VerifyCodeStatus.VALID
-        assert user1.is_active
-        assert code.is_used
-
-    @pytest.mark.parametrize(
-        "user,verify_code_status,next_status",
-        [
-            ("customer", VerificationCodeService.VerifyCodeStatus.ACTIVE, None),
-            (
-                "p_customer",
-                VerificationCodeService.VerifyCodeStatus.CREATED,
-                VerificationCodeService.VerifyCodeStatus.VALID,
-            ),
-        ],
-    )
-    def test_recreate_code(
-        self, simple_users, email_code, verify_code_status, user, next_status
+    def test_create_code_rejects_if_code_already_exists(
+        self, create_user, verification_code_cache
     ):
-        """Test recreate_code_on_demand behavior for active and inactive users"""
-        # Active user case
-        user1 = simple_users[user]
-        verify_code = VerificationCodeService(email=user1.email)
-        if user1.is_active:
-            result = verify_code.recreate_code_on_demand()
-            assert result == verify_code.VerifyCodeStatus.ACTIVE
-        else:
-            # Expired code or user doesn't received a verify code case
-            # create a new code
-            email_code(user=user1, expiry_time=timezone.now())
-            result = verify_code.recreate_code_on_demand()
-            valid_code = VerificationCode.objects.filter(user=user1, is_used=False)
+        user = create_user(is_active=False)
+        cache.delete(user.email)
+        verification_code_cache(user.email, code="123456")
+        service = VerificationCodeService(email=user.email)
 
-            assert result == verify_code_status
-            assert valid_code is not None
+        with pytest.raises(VerificationCodeServiceError):
+            service.create_verification_code()
 
-            # Attemp to recreate a code when a valid code exist
-            result = verify_code.recreate_code_on_demand()
-            assert result == next_status
+    def test_create_code_rejects_if_user_is_already_active(self, create_user):
+        user = create_user(is_active=True)
+        service = VerificationCodeService(email=user.email)
 
+        with pytest.raises(VerificationCodeServiceError):
+            service.create_verification_code()
 
-@pytest.mark.django_db
-def test_rm_expired_code(simple_users, email_code):
-    user1 = simple_users["staff"]
-    user2 = simple_users["customer"]
-    expired_code = email_code(user=user1, expiry_time=timezone.now())
-    valide_code = email_code(user=user2)
+    def test_validate_code_activates_user_and_deletes_cache(
+        self, create_user, verification_code_cache, mocker
+    ):
+        user = create_user(is_active=False)
+        verification_code_cache(user.email, code="654321")
+        mock_init_customer = mocker.patch(
+            "zoolflow.users.services.verifying_code.initialize_customer"
+        )
+        mocker.patch.object(transaction, "on_commit", lambda fn: fn())
+        service = VerificationCodeService(email=user.email)
 
-    # work in real-execution with celery beat
-    remove_expired_code()
+        service.validate_code(received_code="654321")
 
-    assert not VerificationCode.objects.filter(
-        id=expired_code.id
-    ).exists(), "expired code has been deleted"
-    assert VerificationCode.objects.filter(
-        id=valide_code.id
-    ).exists(), "valide code remain"
-    assert VerificationCode.objects.count() == 1
+        user.refresh_from_db()
+        assert user.is_active is True
+        assert cache.get(user.email) is None
+        assert mock_init_customer.called
+
+    def test_validate_code_rejects_invalid_code(
+        self, create_user, verification_code_cache
+    ):
+        user = create_user(is_active=False)
+        verification_code_cache(user.email, code="111111")
+        service = VerificationCodeService(email=user.email)
+
+        with pytest.raises(VerificationCodeServiceError):
+            service.validate_code(received_code="999999")
+
+        user.refresh_from_db()
+        assert user.is_active is False

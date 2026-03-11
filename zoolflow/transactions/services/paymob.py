@@ -62,7 +62,7 @@ class PayMobClient:
         By passing there API key
         """
         # loop to handle worker's who didn't acquire lock
-        for _ in range(3):
+        for retries in range(3):
             cache_key = getattr(settings, "PAYMOB_AUTH_CACH_KEY")
             # check for existing token in cache
             token = cache.get(cache_key)
@@ -72,7 +72,7 @@ class PayMobClient:
             try:
                 # lock to prevent race-condition with workers
                 with cache.lock(f"{cache_key}:lock", timeout=15, blocking_timeout=2):
-                    # check if there a worker fetch the token yet
+                    # check if their is a worker fetch the token yet
                     token = cache.get(cache_key)
                     if token:
                         logger.info("provider authentication token returned.")
@@ -91,6 +91,13 @@ class PayMobClient:
                     return token
 
             except LockError:
+                if retries >= 2:
+                    logger.error(
+                        "Failed to acquire lock for payment authentication token."
+                    )
+                    raise ProviderServiceError(
+                        "Failed to acquire lock for authentication token."
+                    )
                 time.sleep(0.5)
 
     def create_order(self, merchant_id):

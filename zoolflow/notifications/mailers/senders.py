@@ -32,7 +32,7 @@ def mail_verify_code(user_email):
         email_body,
         subject,
         send_to,
-        "Verification-code",  # implement choices in model level
+        EmailEvent.EmailEventPurpose.VERIFICATION_CODE,  # implement choices in model level
         verification_code,
     )
 
@@ -42,13 +42,17 @@ def mail_transaction_state(transaction_id):
     Create and configure EmailMessage instance then send the object
     """
     # Define email arguments (recipient, subject, body)
-    txn = Transaction.objects.get(transaction_id=transaction_id)
+    try:
+        txn = Transaction.objects.get(transaction_id=transaction_id)
+    except Transaction.DoesNotExist:
+        logger.error(f"Transaction {transaction_id} does not exist.")
+        return
 
     state = txn.get_state_display()
     user_email = txn.customer.user.email
-    username = txn.customer.user.username
+    username = txn.customer.user.username or "Customer"
     subject = f"Transaction {transaction_id} Status Update"
-    send_to = f"{username} <{user_email}>"
+    send_to = user_email
     email_body = f"""
     Hello {username},\n\n
     Your transaction with ID {transaction_id} state is {state}.\n\n
@@ -58,8 +62,8 @@ def mail_transaction_state(transaction_id):
         email_body,
         subject,
         send_to,
-        "Transaction state",
-        transaction_id,
+        EmailEvent.EmailEventPurpose.TRANSACTION_UPDATE,
+        f"{transaction_id}:{txn.state}",
     )
 
 
@@ -79,7 +83,7 @@ def _send_idempotent_email(email_body, subject, send_to, purpose, key=None):
             purpose=purpose,
         )
         if not created:
-            logger.warning(f"Email for {purpose} with key {key} already Processed.")
+            logger.warning(f"Email for {purpose} with key {key} has already been sent.")
             return
 
         def _forward_email():

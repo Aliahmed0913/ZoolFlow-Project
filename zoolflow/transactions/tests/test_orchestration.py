@@ -1,5 +1,6 @@
 import pytest
 from django.db import transaction as db_transaction
+from ..models import Transaction
 from ..services.orchestration import TransactionOrchestrationService as tos
 
 
@@ -30,3 +31,16 @@ def test_orchestration_transaction(mocker, customer_factory):
     assert transaction.customer == customer
     assert transaction.order_id == "paymob-id2232"
     assert transaction.payment_token == "test-paymob-token-in-transaction-creation"
+
+
+@pytest.mark.django_db
+def test_transaction_invalid_state_transition(customer_factory):
+    customer = customer_factory()
+    transaction = Transaction.objects.create(
+        customer=customer,
+        amount=99.50,
+        state=Transaction.TransactionState.FAILED,
+    )
+
+    with pytest.raises(ValueError):
+        transaction.transition_to(Transaction.TransactionState.SUCCEEDED)

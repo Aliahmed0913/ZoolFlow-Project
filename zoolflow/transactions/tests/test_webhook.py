@@ -6,7 +6,8 @@ from ..services.webhook import WebhookService
 class TestPayMobWebHookView:
     def test_recieved_hmac(self, api_client, mocker):
         mocker.patch(
-            "transactions.services.webhook.bring_transaction", return_value=None
+            "zoolflow.transactions.services.webhook.bring_transaction",
+            return_value=None,
         )
         recieved_hmac = (
             (
@@ -48,7 +49,9 @@ class TestPayMobWebHookView:
             }
         }
         webhook = WebhookService(
-            data=payload["obj"], transaction_id="transaction_id_for_test"
+            data=payload["obj"],
+            merchant_id="ORD-3E70A0",
+            transaction_id="transaction_id_for_test",
         )
 
         try:

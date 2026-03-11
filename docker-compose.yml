@@ -79,5 +79,4 @@ volumes:
   media_volume:
   minio_data:
 
-    # implement S3 for kyc docs
 

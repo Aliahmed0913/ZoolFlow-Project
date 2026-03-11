@@ -82,3 +82,34 @@ class TestTransactionApi:
 
         assert response.status_code == 403
         assert not orchestrate_spy.called
+
+    def test_idempotency_key_replays_existing_transaction(
+        self, api_client, customer_factory, mocker
+    ):
+        customer = customer_factory(
+            username="idempotent_customer",
+            email="idempotent_customer@example.com",
+            role_management="CUSTOMER",
+        )
+        customer.is_verified = True
+        customer.save(update_fields=["is_verified"])
+        existing = Transaction.objects.create(
+            customer=customer,
+            amount=120,
+            idempotency_key="txn-key-001",
+        )
+        orchestrate_spy = mocker.patch(
+            "zoolflow.transactions.views.TransactionOrchestrationService.create_transaction"
+        )
+
+        api_client.force_authenticate(user=customer.user)
+        response = api_client.post(
+            reverse("transactions:transaction-list"),
+            {"amount": "120.00"},
+            format="json",
+            HTTP_IDEMPOTENCY_KEY="txn-key-001",
+        )
+
+        assert response.status_code == 200
+        assert response.data["merchant_order_id"] == existing.merchant_order_id
+        assert not orchestrate_spy.called
