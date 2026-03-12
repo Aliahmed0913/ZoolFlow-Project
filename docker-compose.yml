@@ -51,15 +51,6 @@ services:
       - redis
       - db
 
-  celery-beat:
-    build: .
-    container_name: zoolflow_celery_beat
-    command: celery -A config beat -l info
-    env_file: .env
-    depends_on:
-      - redis
-      - db
-
   minio:
     image: minio/minio
     container_name: zoolflow_minio
